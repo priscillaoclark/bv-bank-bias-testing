@@ -41,30 +41,73 @@ class BiasTester:
         self.statistical_analyzer = StatisticalBiasAnalyzer()
         self.bias_analyzer = BiasAnalyzer()
     
-    def generate_personas(self, num_personas: int, diversity_strategy: str = "mixed", temperature: float = None) -> List[str]:
+    def generate_personas(self, num_personas: int, diversity_strategy: str = "mixed", temperature: float = None, enforce_diversity: bool = True) -> List[str]:
         """Generate personas for testing.
         
         Args:
             num_personas: Number of personas to generate
             diversity_strategy: Strategy for temperature diversity
             temperature: Specific temperature to use (overrides diversity_strategy)
+            enforce_diversity: Whether to enforce diversity between generated personas
         """
         print(f"\n=== Generating {num_personas} personas with '{diversity_strategy}' diversity strategy ===")
+        if enforce_diversity:
+            print("Diversity validation is ENABLED - personas will be checked for uniqueness")
+        else:
+            print("Diversity validation is DISABLED - personas may have similar characteristics")
         
         if temperature is not None:
             print(f"Using fixed temperature: {temperature}")
             # Generate personas with a specific temperature
-            persona_ids = []
-            for i in range(num_personas):
-                print(f"\nGenerating persona {i+1}/{num_personas}...")
-                persona = self.persona_generator.generate_persona(temperature=temperature)
-                persona_id = self.persona_generator.save_persona(persona)
-                if persona_id:
-                    persona_ids.append(persona_id)
-            return persona_ids
+            if enforce_diversity:
+                # Use the new ensure_diverse_persona method for each persona
+                persona_ids = []
+                existing_personas = []
+                
+                # Try to get existing personas from the database for comparison
+                try:
+                    if hasattr(self.persona_generator, 'db') and self.persona_generator.db:
+                        existing_personas = self.persona_generator.db.get_all_personas()
+                        print(f"Retrieved {len(existing_personas)} existing personas for diversity validation")
+                except Exception as e:
+                    print(f"Warning: Could not retrieve existing personas: {str(e)}")
+                
+                for i in range(num_personas):
+                    print(f"\nGenerating persona {i+1}/{num_personas}...")
+                    # Combine existing and newly generated personas for comparison
+                    all_personas_for_comparison = existing_personas + [p for p in existing_personas if isinstance(p, dict)]
+                    
+                    # Generate a diverse persona
+                    persona = self.persona_generator.ensure_diverse_persona(
+                        all_personas_for_comparison,
+                        temperature=temperature,
+                        max_attempts=3
+                    )
+                    
+                    # Save the persona and add to our list
+                    persona_id = self.persona_generator.save_persona(persona)
+                    if persona_id:
+                        persona_ids.append(persona_id)
+                        existing_personas.append(persona)  # Add to our comparison set for next iteration
+                
+                return persona_ids
+            else:
+                # Original implementation without diversity validation
+                persona_ids = []
+                for i in range(num_personas):
+                    print(f"\nGenerating persona {i+1}/{num_personas}...")
+                    persona = self.persona_generator.generate_persona(temperature=temperature)
+                    persona_id = self.persona_generator.save_persona(persona)
+                    if persona_id:
+                        persona_ids.append(persona_id)
+                return persona_ids
         else:
-            # Generate personas with the specified diversity strategy
-            return self.persona_generator.generate_personas(num_personas, diversity_strategy=diversity_strategy)
+            # Generate personas with the specified diversity strategy using the updated method
+            return self.persona_generator.generate_personas(
+                num_personas, 
+                diversity_strategy=diversity_strategy,
+                enforce_diversity=enforce_diversity
+            )
     
     def generate_prompts(self, num_products: int) -> List[str]:
         """Generate prompts for testing."""

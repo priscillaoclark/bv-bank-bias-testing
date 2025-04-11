@@ -316,6 +316,64 @@ class Database:
         
         return list(self.test_results_collection.find(query).sort("date_tested", -1).limit(limit))
     
+    def store_persona(self, persona: Dict[str, Any]) -> str:
+        """
+        Store a persona in the database.
+        
+        Args:
+            persona: Persona data
+            
+        Returns:
+            ID of the stored persona
+        """
+        # Add creation timestamp if not present
+        if "date_created" not in persona:
+            persona["date_created"] = datetime.now().isoformat()
+        
+        # Insert the persona
+        result = self.personas_collection.insert_one(persona)
+        return str(result.inserted_id)
+    
+    def get_persona(self, persona_id: Union[str, ObjectId]) -> Optional[Dict[str, Any]]:
+        """
+        Get a persona from the database.
+        
+        Args:
+            persona_id: ID of the persona
+            
+        Returns:
+            Persona document or None if not found
+        """
+        if isinstance(persona_id, str):
+            try:
+                persona_id = ObjectId(persona_id)
+            except Exception:
+                return None
+        
+        return self.personas_collection.find_one({"_id": persona_id})
+    
+    def get_all_personas(self) -> List[Dict[str, Any]]:
+        """
+        Get all personas from the database.
+        
+        Returns:
+            List of persona documents
+        """
+        return list(self.personas_collection.find({}))
+    
+    def get_personas_by_attribute(self, attribute: str, value: Any) -> List[Dict[str, Any]]:
+        """
+        Get personas with a specific attribute value.
+        
+        Args:
+            attribute: Attribute name (e.g., "gender", "age_range", etc.)
+            value: Value to match
+            
+        Returns:
+            List of matching persona documents
+        """
+        return list(self.personas_collection.find({attribute: value}))
+    
     def close(self):
         """Close the database connection."""
         if hasattr(self, 'client') and self.client:

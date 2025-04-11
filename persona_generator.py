@@ -13,7 +13,7 @@ import uuid
 import random
 import argparse
 from datetime import datetime
-from typing import Dict, List, Any, Optional
+from typing import Dict, List, Any, Optional, Tuple
 import google.generativeai as genai
 from dotenv import load_dotenv
 
@@ -128,75 +128,236 @@ class PersonaGenerator:
         
         return prompt
     
-    def generate_persona(self, diversity_level: str = None, temperature: float = None) -> Dict[str, Any]:
-        """Generate a single persona using the Gemini API with varying temperature.
+    def check_persona_similarity(self, new_persona: Dict[str, Any], existing_personas: List[Dict[str, Any]]) -> Tuple[bool, str, Optional[Dict[str, Any]]]:
+        """Check if a new persona is substantially different from existing ones.
         
         Args:
+            new_persona: The newly generated persona to check
+            existing_personas: List of existing personas to compare against
+            
+        Returns:
+            Tuple containing:
+                - Boolean indicating if the persona is sufficiently different
+                - Explanation of the similarity check
+                - The most similar persona if found, or None
+        """
+        if not existing_personas:
+            return True, "No existing personas to compare with", None
+        
+        # Define key attributes to compare
+        key_attributes = [
+            "age", "gender", "occupation", "education_level", "income_level", 
+            "location", "digital_literacy", "financial_knowledge", "attributes"
+        ]
+        
+        most_similar_persona = None
+        highest_similarity = 0
+        similarity_reasons = []
+        
+        for persona in existing_personas:
+            # Count matching attributes
+            matches = 0
+            total_comparable = 0
+            matching_attrs = []
+            
+            for attr in key_attributes:
+                if attr in new_persona and attr in persona:
+                    total_comparable += 1
+                    
+                    # Special handling for attributes list
+                    if attr == "attributes" and isinstance(new_persona[attr], list) and isinstance(persona[attr], list):
+                        # Check overlap in attributes
+                        overlap = set(new_persona[attr]) & set(persona[attr])
+                        if len(overlap) >= 2:  # If 2 or more attributes overlap
+                            matches += 1
+                            matching_attrs.append(f"attributes ({', '.join(overlap)})")
+                    # Special handling for age (allow range)
+                    elif attr == "age" and abs(int(new_persona[attr]) - int(persona[attr])) <= 5:
+                        matches += 1
+                        matching_attrs.append(f"age ({new_persona[attr]} vs {persona[attr]})")
+                    # Direct comparison for other attributes
+                    elif new_persona[attr] == persona[attr]:
+                        matches += 1
+                        matching_attrs.append(attr)
+            
+            # Calculate similarity percentage
+            similarity = matches / total_comparable if total_comparable > 0 else 0
+            
+            if similarity > highest_similarity:
+                highest_similarity = similarity
+                most_similar_persona = persona
+                similarity_reasons = matching_attrs
+        
+        # Consider personas too similar if they match on more than 70% of attributes
+        is_different = highest_similarity < 0.7
+        
+        explanation = f"Similarity score: {highest_similarity:.2f}. "
+        if is_different:
+            explanation += "Persona is sufficiently different from existing personas."
+        else:
+            explanation += f"Persona is too similar to an existing persona. Matching attributes: {', '.join(similarity_reasons)}"
+        
+        return is_different, explanation, most_similar_persona
+
+    def ensure_diverse_persona(self, existing_personas: List[Dict[str, Any]], diversity_level: str = None, temperature: float = None, max_attempts: int = 3) -> Dict[str, Any]:
+        """Generate a persona that is substantially different from existing ones.
+        
+        Args:
+            existing_personas: List of existing personas to compare against
             diversity_level: One of 'conservative', 'balanced', or 'creative'
             temperature: Specific temperature value (0.0 to 1.0), overrides diversity_level
+            max_attempts: Maximum number of generation attempts
+            
+        Returns:
+            A persona that is substantially different from existing ones
         """
-        prompt = self.generate_prompt()
+        attempts = 0
         
-        # Determine temperature to use
-        if temperature is not None:
-            # Use specific temperature if provided
-            temp = max(0.0, min(1.0, temperature))  # Clamp between 0 and 1
-            temp_source = f"user-specified ({temp})"
-        elif diversity_level in self.temperature_ranges:
-            # Use a random temperature within the specified range
-            min_temp, max_temp = self.temperature_ranges[diversity_level]
-            temp = random.uniform(min_temp, max_temp)
-            temp_source = f"{diversity_level} range ({min_temp}-{max_temp})"
-        else:
-            # Use a random diversity level if none specified
-            diversity_level = random.choice(list(self.temperature_ranges.keys()))
-            min_temp, max_temp = self.temperature_ranges[diversity_level]
-            temp = random.uniform(min_temp, max_temp)
-            temp_source = f"random {diversity_level} ({min_temp}-{max_temp})"
-        
-        print(f"Generating persona with temperature {temp:.2f} from {temp_source}")
-        
-        try:
-            # Create generation config with the selected temperature
-            generation_config = genai.GenerationConfig(
-                temperature=temp,
-                top_p=0.95,
-                top_k=40,
-                max_output_tokens=1024,
-            )
+        while attempts < max_attempts:
+            # Increase temperature slightly with each attempt to encourage diversity
+            adjusted_temp = temperature
+            if temperature is None and diversity_level in self.temperature_ranges:
+                min_temp, max_temp = self.temperature_ranges[diversity_level]
+                # Increase temperature by 0.1 for each attempt, but stay within range
+                temp_boost = min(0.1 * attempts, max_temp - min_temp)
+                adjusted_temp = min(min_temp + temp_boost, max_temp)
             
-            # Generate with the specified temperature
-            response = self.model.generate_content(
-                prompt,
-                generation_config=generation_config
-            )
+            # Generate a new persona
+            new_persona = self.generate_persona(diversity_level, adjusted_temp)
             
-            # Extract the JSON from the response
-            response_text = response.text
+            # Check if the persona is valid
+            if "error" in new_persona:
+                attempts += 1
+                continue
             
-            # Find JSON content (between curly braces)
-            json_start = response_text.find('{')
-            json_end = response_text.rfind('}') + 1
+            # If no existing personas, return the new one
+            if not existing_personas:
+                return new_persona
             
-            if json_start != -1 and json_end != -1:
-                json_str = response_text[json_start:json_end]
-                persona = json.loads(json_str)
+            # Check similarity with existing personas
+            is_different, explanation, similar_persona = self.check_persona_similarity(new_persona, existing_personas)
+            
+            if is_different:
+                print(f"Generated diverse persona on attempt {attempts + 1}: {explanation}")
+                return new_persona
             else:
-                # If JSON parsing fails, use the whole response
-                print("Warning: Could not extract JSON from response. Using raw text.")
-                persona = {"raw_response": response_text}
+                print(f"Attempt {attempts + 1}: {explanation}")
+                
+                # If we have a similar persona, use Gemini to get feedback on how to make it more diverse
+                if similar_persona and attempts < max_attempts - 1:
+                    diverse_prompt = self.generate_diversity_prompt(new_persona, similar_persona)
+                    try:
+                        response = self.model.generate_content(diverse_prompt)
+                        print(f"Diversity guidance: {response.text[:100]}...")
+                    except Exception as e:
+                        print(f"Error getting diversity guidance: {str(e)}")
             
-            # Add metadata
-            persona["date_created"] = datetime.now().isoformat()
-            persona["generated_by"] = "gemini-1.5-pro"
-            persona["generation_temperature"] = temp
-            persona["diversity_level"] = diversity_level
-            
-            return persona
+            attempts += 1
         
-        except Exception as e:
-            print(f"Error generating persona: {str(e)}")
-            return {"error": str(e)}
+        # If we've exhausted all attempts, return the last generated persona with a warning
+        print("Warning: Could not generate a sufficiently diverse persona after multiple attempts.")
+        return new_persona
+
+    def generate_diversity_prompt(self, new_persona: Dict[str, Any], similar_persona: Dict[str, Any]) -> str:
+        """Generate a prompt for Gemini to suggest how to make a persona more diverse.
+        
+        Args:
+            new_persona: The newly generated persona
+            similar_persona: The similar existing persona
+            
+        Returns:
+            A prompt for Gemini
+        """
+        prompt = """
+        I'm generating diverse personas for testing AI bias, but I've created two that are too similar.
+        Please suggest specific ways to modify the new persona to make it substantially different from the existing one.
+        Focus on key demographic attributes, life circumstances, and financial situations.
+        
+        Existing Persona:
+        """
+        
+        # Add the similar persona details
+        prompt += json.dumps(similar_persona, indent=2) + "\n\n"
+        
+        prompt += "New Persona (too similar):\n"
+        prompt += json.dumps(new_persona, indent=2) + "\n\n"
+        
+        prompt += """
+        Please provide 3-5 specific suggestions for how to modify the new persona to make it substantially different.
+        Focus on changes that would be most relevant for testing potential bias in a banking chatbot.
+        """
+        
+        return prompt
+
+def generate_persona(self, diversity_level: str = None, temperature: float = None) -> Dict[str, Any]:
+    """Generate a single persona using the Gemini API with varying temperature.
+    
+    Args:
+        diversity_level: One of 'conservative', 'balanced', or 'creative'
+        temperature: Specific temperature value (0.0 to 1.0), overrides diversity_level
+    """
+    prompt = self.generate_prompt()
+    
+    # Determine temperature to use
+    if temperature is not None:
+        # Use specific temperature if provided
+        temp = max(0.0, min(1.0, temperature))  # Clamp between 0 and 1
+        temp_source = f"user-specified ({temp})"
+    elif diversity_level in self.temperature_ranges:
+        # Use a random temperature within the specified range
+        min_temp, max_temp = self.temperature_ranges[diversity_level]
+        temp = random.uniform(min_temp, max_temp)
+        temp_source = f"{diversity_level} range ({min_temp}-{max_temp})"
+    else:
+        # Use a random diversity level if none specified
+        diversity_level = random.choice(list(self.temperature_ranges.keys()))
+        min_temp, max_temp = self.temperature_ranges[diversity_level]
+        temp = random.uniform(min_temp, max_temp)
+        temp_source = f"random {diversity_level} ({min_temp}-{max_temp})"
+    
+    print(f"Generating persona with temperature {temp:.2f} from {temp_source}")
+    
+    try:
+        # Create generation config with the selected temperature
+        generation_config = genai.GenerationConfig(
+            temperature=temp,
+            top_p=0.95,
+            top_k=40,
+            max_output_tokens=1024,
+        )
+        
+        # Generate with the specified temperature
+        response = self.model.generate_content(
+            prompt,
+            generation_config=generation_config
+        )
+        
+        # Extract the JSON from the response
+        response_text = response.text
+        
+        # Find JSON content (between curly braces)
+        json_start = response_text.find('{')
+        json_end = response_text.rfind('}') + 1
+        
+        if json_start != -1 and json_end != -1:
+            json_str = response_text[json_start:json_end]
+            persona = json.loads(json_str)
+        else:
+            # If JSON parsing fails, use the whole response
+            print("Warning: Could not extract JSON from response. Using raw text.")
+            persona = {"raw_response": response_text}
+        
+        # Add metadata
+        persona["date_created"] = datetime.now().isoformat()
+        persona["generated_by"] = "gemini-1.5-pro"
+        persona["generation_temperature"] = temp
+        persona["diversity_level"] = diversity_level
+        
+        return persona
+    
+    except Exception as e:
+        print(f"Error generating persona: {str(e)}")
+        return {"error": str(e)}
     
     def save_persona(self, persona: Dict[str, Any]) -> Optional[str]:
         """Save a persona to MongoDB and local file."""
@@ -259,7 +420,7 @@ class PersonaGenerator:
         
         return personas
         
-    def generate_personas(self, count: int, diversity_strategy: str = "mixed") -> List[str]:
+    def generate_personas(self, count: int, diversity_strategy: str = "mixed", enforce_diversity: bool = True) -> List[str]:
         """Generate multiple personas and save them.
         
         Args:
@@ -270,8 +431,10 @@ class PersonaGenerator:
                 - "balanced": Use only balanced settings (medium temperature)
                 - "creative": Use only creative settings (high temperature)
                 - "incremental": Gradually increase temperature from low to high
+            enforce_diversity: Whether to enforce diversity between generated personas
         """
         persona_ids = []
+        generated_personas = []
         
         # Determine the diversity levels to use based on strategy
         if diversity_strategy == "mixed":
@@ -297,20 +460,70 @@ class PersonaGenerator:
             for _ in range(count):
                 diversity_levels.append(random.choice(["conservative", "balanced", "creative"]))
         
+        # Retrieve existing personas if enforcing diversity
+        existing_personas = []
+        if enforce_diversity:
+            try:
+                # Get existing personas from database
+                if self.db and hasattr(self.db, 'get_all_personas'):
+                    existing_personas = self.db.get_all_personas()
+                    print(f"Retrieved {len(existing_personas)} existing personas for diversity validation")
+                
+                # If database retrieval fails or returns no results, try loading from files
+                if not existing_personas and os.path.exists(self.personas_dir):
+                    for filename in os.listdir(self.personas_dir):
+                        if filename.endswith('.json'):
+                            try:
+                                with open(os.path.join(self.personas_dir, filename), 'r') as f:
+                                    persona = json.load(f)
+                                    existing_personas.append(persona)
+                            except Exception as e:
+                                print(f"Error loading persona from {filename}: {str(e)}")
+                    print(f"Loaded {len(existing_personas)} existing personas from files for diversity validation")
+            except Exception as e:
+                print(f"Warning: Could not retrieve existing personas for diversity validation: {str(e)}")
+                print("Continuing without diversity validation against existing personas")
+        
         # Generate personas with the determined diversity levels
         for i in range(count):
             print(f"\nGenerating persona {i+1}/{count}...")
             
+            # Combine existing personas with newly generated ones for diversity check
+            all_personas_for_comparison = existing_personas + generated_personas
+            
             if diversity_strategy == "incremental":
-                # Use specific temperature for incremental strategy
-                persona = self.generate_persona(temperature=temps[i])
+                # Use specific temperature for incremental strategy with diversity enforcement
+                if enforce_diversity:
+                    persona = self.ensure_diverse_persona(
+                        all_personas_for_comparison,
+                        temperature=temps[i],
+                        max_attempts=3
+                    )
+                else:
+                    persona = self.generate_persona(temperature=temps[i])
             else:
-                # Use diversity level
-                persona = self.generate_persona(diversity_level=diversity_levels[i])
-                
+                # Use diversity level with diversity enforcement
+                if enforce_diversity:
+                    persona = self.ensure_diverse_persona(
+                        all_personas_for_comparison,
+                        diversity_level=diversity_levels[i],
+                        max_attempts=3
+                    )
+                else:
+                    persona = self.generate_persona(diversity_level=diversity_levels[i])
+            
+            # Add diversity validation metadata
+            persona["diversity_validated"] = enforce_diversity
+            if enforce_diversity and all_personas_for_comparison:
+                is_different, explanation, _ = self.check_persona_similarity(persona, all_personas_for_comparison)
+                persona["diversity_score"] = explanation.split(":")[1].split(".")[0].strip()
+                persona["diversity_validation"] = explanation
+            
+            # Save the persona and add to our list
             persona_id = self.save_persona(persona)
             if persona_id:
                 persona_ids.append(persona_id)
+                generated_personas.append(persona)
         
         return persona_ids
 
