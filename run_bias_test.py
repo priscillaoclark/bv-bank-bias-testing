@@ -17,6 +17,9 @@ import sys
 import json
 import argparse
 import time
+import uuid
+import logging
+from datetime import datetime
 from typing import Dict, List, Any, Optional
 from dotenv import load_dotenv
 
@@ -27,6 +30,7 @@ from prompt_generator import PromptGenerator
 from chatbot_tester import LightweightChatbotTester
 from bias_analyzer import BiasAnalyzer
 from statistical_bias_analyzer import StatisticalBiasAnalyzer
+from utils.logging_config import get_run_logger
 
 # Load environment variables
 load_dotenv()
@@ -34,8 +38,13 @@ load_dotenv()
 class BiasTester:
     """Orchestrate the entire bias testing process."""
     
-    def __init__(self):
-        """Initialize the BiasTester."""
+    def __init__(self, logger=None):
+        """Initialize the BiasTester.
+        
+        Args:
+            logger: Optional logger instance
+        """
+        self.logger = logger or logging.getLogger(__name__)
         self.persona_generator = PersonaGenerator()
         self.prompt_generator = PromptGenerator()
         self.statistical_analyzer = StatisticalBiasAnalyzer()
@@ -50,14 +59,14 @@ class BiasTester:
             temperature: Specific temperature to use (overrides diversity_strategy)
             enforce_diversity: Whether to enforce diversity between generated personas
         """
-        print(f"\n=== Generating {num_personas} personas with '{diversity_strategy}' diversity strategy ===")
+        self.logger.info(f"Generating {num_personas} personas with '{diversity_strategy}' diversity strategy")
         if enforce_diversity:
-            print("Diversity validation is ENABLED - personas will be checked for uniqueness")
+            self.logger.info("Diversity validation is ENABLED - personas will be checked for uniqueness")
         else:
-            print("Diversity validation is DISABLED - personas may have similar characteristics")
+            self.logger.info("Diversity validation is DISABLED - personas may have similar characteristics")
         
         if temperature is not None:
-            print(f"Using fixed temperature: {temperature}")
+            self.logger.info(f"Using fixed temperature: {temperature}")
             # Generate personas with a specific temperature
             if enforce_diversity:
                 # Use the new ensure_diverse_persona method for each persona
@@ -111,16 +120,16 @@ class BiasTester:
     
     def generate_prompts(self, num_products: int) -> List[str]:
         """Generate prompts for testing."""
-        print(f"\n=== Generating prompts for {num_products} products ===")
+        self.logger.info(f"Generating prompts for {num_products} products")
         return self.prompt_generator.generate_prompts_for_personas(num_products)
     
     def test_prompts(self, prompt_ids: List[str]) -> Dict[str, str]:
         """Test prompts with the Aurora chatbot."""
-        print("\n=== Testing prompts with Aurora chatbot ===")
+        self.logger.info("Testing prompts with Aurora chatbot")
         conversation_map = {}
         
         for i, prompt_id in enumerate(prompt_ids):
-            print(f"\nTesting prompt {i+1}/{len(prompt_ids)} (ID: {prompt_id})...")
+            self.logger.info(f"Testing prompt {i+1}/{len(prompt_ids)} (ID: {prompt_id})...")
             
             # Load the prompt
             prompt_doc = None
@@ -168,7 +177,7 @@ class BiasTester:
                     
                     if conversation_id:
                         conversation_map[prompt_id] = conversation_id
-                        print(f"Conversation for prompt {prompt_id} stored with ID: {conversation_id}")
+                        self.logger.info(f"Conversation for prompt {prompt_id} stored with ID: {conversation_id}")
                     
                     # Wait a bit to avoid overwhelming the chatbot
                     time.sleep(2)
@@ -188,97 +197,100 @@ class BiasTester:
             List of analysis IDs from the qualitative analysis
         """
         # Step 1: Run statistical analysis
-        print("\n=== Running statistical analysis on conversation pairs ===")
+        self.logger.info("Running statistical analysis on conversation pairs")
         stats_data = self.run_statistical_analysis()
         
         # Step 2: Run qualitative analysis with statistical context
-        print("\n=== Analyzing conversations for bias with statistical context ===")
+        self.logger.info("Analyzing conversations for bias with statistical context")
         if force_all:
-            print("Forcing re-analysis of all conversation pairs, even those already analyzed")
+            self.logger.info("Forcing re-analysis of all conversation pairs, even those already analyzed")
         
         # Pass the statistical data to the bias analyzer
         return self.bias_analyzer.analyze_all_conversation_pairs(force_all=force_all, stats_data=stats_data)
     
-    def run_statistical_analysis(self) -> Optional[Dict[str, Any]]:
+    def run_statistical_analysis(self) -> Dict[str, Any]:
         """Run statistical analysis on conversation pairs.
         
         Returns:
-            Dictionary containing statistical analysis results, or None if analysis failed
+            Dictionary containing statistical analysis results
         """
         try:
-            # Find conversation pairs first
-            conversation_pairs = self.statistical_analyzer._find_conversation_pairs()
+            # Find conversation pairs
+            self.logger.info("Finding conversation pairs for statistical analysis...")
+            conversation_pairs = []
+            
+            # Get conversation pairs from the bias analyzer
+            if hasattr(self.bias_analyzer, 'find_conversation_pairs'):
+                pairs = self.bias_analyzer.find_conversation_pairs(skip_analyzed=False)
+                for pair in pairs:
+                    baseline_conv = pair.get("baseline_conversation")
+                    persona_conv = pair.get("persona_conversation")
+                    if baseline_conv and persona_conv:
+                        conversation_pairs.append((baseline_conv, persona_conv))
             
             if not conversation_pairs:
-                print("No conversation pairs found for statistical analysis.")
-                return None
+                self.logger.warning("No conversation pairs found for statistical analysis.")
+                return {}
             
-            print(f"Running statistical analysis on {len(conversation_pairs)} conversation pairs...")
+            self.logger.info(f"Found {len(conversation_pairs)} conversation pairs for statistical analysis.")
             
-            # Analyze the conversation pairs
-            results = self.statistical_analyzer.analyze_conversation_pairs(conversation_pairs)
-            
-            if not results:
-                print("No statistical analysis results generated.")
-                return None
+            # Run the statistical analysis
+            self.logger.info("Running statistical analysis...")
+            stats_results = self.statistical_analyzer.analyze_conversation_pairs(conversation_pairs)
             
             # Save the results
-            stats_id = self.statistical_analyzer.save_analysis_results(results)
+            stats_data = {
+                "timestamp": datetime.now().isoformat(),
+                "num_pairs": len(conversation_pairs),
+                "results": stats_results
+            }
             
-            if stats_id:
-                print(f"Statistical analysis completed and saved with ID: {stats_id}")
-                
-                # Try to load the saved analysis from MongoDB first
-                if self.statistical_analyzer.mongodb_available:
-                    try:
-                        stats_doc = self.statistical_analyzer.db.stats_collection.find_one({"_id": stats_id})
-                        if stats_doc:
-                            return stats_doc
-                    except Exception as e:
-                        print(f"Error loading statistical analysis from MongoDB: {str(e)}")
-                
-                # Fall back to local file
-                try:
-                    stats_file = os.path.join(self.statistical_analyzer.stats_dir, f"{stats_id}.json")
-                    if os.path.exists(stats_file):
-                        with open(stats_file, 'r', encoding='utf-8') as f:
-                            return json.load(f)
-                except Exception as e:
-                    print(f"Error loading statistical analysis file: {str(e)}")
-            
-            # If we couldn't load the saved analysis, return the results directly
-            return {"results": results}
+            self.logger.info("Statistical analysis complete.")
+            return stats_data
             
         except Exception as e:
-            print(f"Error running statistical analysis: {str(e)}")
-            return None
+            self.logger.error(f"Error running statistical analysis: {str(e)}")
+            return {}
     
-    def run_full_test(self, num_personas: int, num_products: int) -> None:
-        """Run the full bias testing process."""
-        # Step 1: Generate personas if needed
-        personas = self.persona_generator.load_personas()
-        if len(personas) < num_personas:
-            print(f"Need to generate {num_personas - len(personas)} more personas...")
-            self.generate_personas(num_personas - len(personas))
+    def count_results(self):
+        """Count the number of results in each category."""
+        # Count personas
+        personas = []
+        try:
+            if hasattr(self.persona_generator, 'db') and self.persona_generator.db:
+                personas = self.persona_generator.db.get_all_personas()
+        except Exception as e:
+            self.logger.error(f"Error counting personas: {str(e)}")
         
-        # Step 2: Generate prompts
-        prompt_ids = self.generate_prompts(num_products)
+        # Count prompts
+        prompts = []
+        try:
+            if hasattr(self.prompt_generator, 'db') and self.prompt_generator.db:
+                prompts = list(self.prompt_generator.db.prompts_collection.find({}))
+        except Exception as e:
+            self.logger.error(f"Error counting prompts: {str(e)}")
         
-        # Step 3: Test prompts with the chatbot
-        conversation_map = self.test_prompts(prompt_ids)
+        # Count conversations
+        conversations = []
+        try:
+            if hasattr(self.bias_analyzer, 'db') and self.bias_analyzer.db:
+                conversations = list(self.bias_analyzer.db.conversations_collection.find({}))
+        except Exception as e:
+            self.logger.error(f"Error counting conversations: {str(e)}")
         
-        # Step 4: Run statistical analysis
-        print("\n=== Running statistical analysis on conversation pairs ===")
-        stats_data = self.run_statistical_analysis()
+        # Count analyses
+        analyses = []
+        try:
+            if hasattr(self.bias_analyzer, 'db') and self.bias_analyzer.db:
+                analyses = list(self.bias_analyzer.db.test_results_collection.find({"analysis_type": "bias_analysis"}))
+        except Exception as e:
+            self.logger.error(f"Error counting analyses: {str(e)}")
         
-        # Step 5: Analyze conversations for bias with statistical context
-        analysis_ids = self.analyze_conversations()
-        
-        # Print summary
-        print("\n=== Bias Testing Summary ===")
-        print(f"Generated prompts: {len(prompt_ids)}")
-        print(f"Tested conversations: {len(conversation_map)}")
-        print(f"Bias analyses: {len(analysis_ids)}")
+        self.logger.info("=== System Status ===")
+        self.logger.info(f"Personas: {len(personas)}")
+        self.logger.info(f"Prompts: {len(prompts)}")
+        self.logger.info(f"Conversations: {len(conversations)}")
+        self.logger.info(f"Bias analyses: {len(analyses)}")
 
 def main():
     """Main function to run the bias tester."""
@@ -298,13 +310,27 @@ def main():
     parser.add_argument("--skip-analysis", action="store_true", help="Skip qualitative bias analysis")
     parser.add_argument("--force-analysis", action="store_true", help="Force re-analysis of already analyzed conversations")
     parser.add_argument("--force-all", action="store_true", help="Force all steps to run, even if results already exist")
+    parser.add_argument("--log-level", type=str, default="INFO", 
+                        choices=["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"],
+                        help="Logging level")
+    parser.add_argument("--run-id", type=str, help="Custom run ID for logging (default: auto-generated)")
     
     args = parser.parse_args()
     
-    tester = BiasTester()
+    # Set up logging
+    run_id = args.run_id or f"{datetime.now().strftime('%Y%m%d_%H%M%S')}_{str(uuid.uuid4())[:8]}"
+    log_level = getattr(logging, args.log_level)
+    logger = get_run_logger(run_id)
+    logger.setLevel(log_level)
+    
+    logger.info(f"Starting bias test run with ID: {run_id}")
+    logger.info(f"Command-line arguments: {args}")
+    
+    # Initialize the bias tester with the logger
+    tester = BiasTester(logger=logger)
     
     if args.skip_prompts and args.skip_testing and args.skip_analysis:
-        print("Error: You've chosen to skip all steps. Nothing to do.")
+        logger.error("You've chosen to skip all steps. Nothing to do.")
         sys.exit(1)
     
     if not args.skip_personas:
@@ -312,7 +338,7 @@ def main():
         personas = tester.persona_generator.load_personas()
         if len(personas) < args.personas or args.force_all:
             num_to_generate = args.personas if args.force_all else (args.personas - len(personas))
-            print(f"Need to generate {num_to_generate} personas...")
+            logger.info(f"Need to generate {num_to_generate} personas...")
             tester.generate_personas(
                 num_to_generate,
                 diversity_strategy=args.diversity,
@@ -344,26 +370,29 @@ def main():
     
     # Step 4: Run the integrated analysis (statistical + qualitative)
     if args.skip_stats and args.skip_analysis:
-        print("Skipping both statistical and qualitative analysis.")
+        logger.info("Skipping both statistical and qualitative analysis.")
     elif args.skip_stats:
-        print("Skipping statistical analysis, running only qualitative analysis.")
+        logger.info("Skipping statistical analysis, running only qualitative analysis.")
         # If force_all is specified, it overrides force_analysis
         force_analysis = args.force_analysis or args.force_all
         # Run qualitative analysis without statistical context
         analysis_ids = tester.bias_analyzer.analyze_all_conversation_pairs(force_all=force_analysis)
-        print(f"\nCompleted {len(analysis_ids)} qualitative bias analyses.")
+        logger.info(f"Completed {len(analysis_ids)} qualitative bias analyses.")
     elif args.skip_analysis:
-        print("Running only statistical analysis, skipping qualitative analysis.")
+        logger.info("Running only statistical analysis, skipping qualitative analysis.")
         # Run statistical analysis only
         stats_data = tester.run_statistical_analysis()
         if stats_data:
-            print("Statistical analysis completed successfully.")
+            logger.info("Statistical analysis completed successfully.")
     else:
         # Run both statistical and qualitative analysis
         # If force_all is specified, it overrides force_analysis
         force_analysis = args.force_analysis or args.force_all
         analysis_ids = tester.analyze_conversations(force_all=force_analysis)
-        print(f"\nCompleted integrated bias analysis with {len(analysis_ids)} qualitative analyses.")
+        logger.info(f"Completed integrated bias analysis with {len(analysis_ids)} qualitative analyses.")
+        
+    # Log completion of the run
+    logger.info(f"Bias test run {run_id} completed successfully")
 
 if __name__ == "__main__":
     main()

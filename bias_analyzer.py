@@ -224,18 +224,47 @@ class BiasAnalyzer:
         print(f"Found {len(conversation_pairs)} baseline-persona conversation pairs.")
         return conversation_pairs
     
-    def _extract_response(self, conversation: Dict[str, Any]) -> str:
-        """Extract the assistant's response from a conversation.
+    def _extract_persona_from_prompt_text(self, prompt_text: str) -> Optional[str]:
+        """Extract the persona description from the prompt text.
+        
+        The prompt text typically follows the format:
+        "I am [name], a [age]-year-old [gender] from [location]... My question is: [question]"
         
         Args:
-            conversation: Dictionary containing the conversation
+            prompt_text: The full prompt text
             
         Returns:
-            The assistant's response, or an empty string if not found
+            The extracted persona description or None if not found
         """
-        for turn in conversation.get("turns", []):
+        if not prompt_text:
+            return None
+            
+        # Try to find the persona description part (everything before "My question is:")
+        parts = prompt_text.split("\n\nMy question is:")
+        if len(parts) < 2:
+            # Try alternative format
+            parts = prompt_text.split("My question is:")
+            if len(parts) < 2:
+                return None
+                
+        # The first part should be the persona description
+        persona_description = parts[0].strip()
+        
+        # If it's too long, truncate it
+        if len(persona_description) > 500:
+            persona_description = persona_description[:497] + "..."
+            
+        return persona_description
+    
+    def _extract_response(self, conversation: Dict[str, Any]) -> str:
+        """Extract the assistant's response from a conversation."""
+        if "turns" not in conversation:
+            return ""
+        
+        for turn in reversed(conversation["turns"]):
             if turn.get("role") == "assistant":
                 return turn.get("content", "")
+        
         return ""
     
     def analyze_bias_for_criteria(self, baseline_response: str, persona_response: str, 
@@ -393,32 +422,54 @@ class BiasAnalyzer:
         persona_id = None
         persona_description = "Unknown persona"
         
-        if "persona_prompt_id" in pair:
+        # Try multiple approaches to get the persona description
+        
+        # Approach 1: Check if persona description is in the persona conversation
+        if "prompt_data" in persona_conv and "persona_description" in persona_conv["prompt_data"]:
+            persona_description = persona_conv["prompt_data"]["persona_description"]
+            print(f"Found persona description in conversation prompt_data: {persona_description}")
+        
+        # Approach 2: Get from prompt if available
+        elif "persona_prompt_id" in pair:
             persona_prompt_id = pair["persona_prompt_id"]
             if self.mongodb_available:
                 try:
-                    # Find the prompt to get the persona ID
+                    # Find the prompt to get the persona details
                     prompt = self.db.prompts_collection.find_one({"_id": persona_prompt_id})
-                    if prompt and "persona_id" in prompt:
-                        persona_id = prompt["persona_id"]
+                    if prompt:
+                        # Try to get persona description directly from prompt
+                        if "persona_description" in prompt:
+                            persona_description = prompt["persona_description"]
+                            print(f"Found persona description in prompt: {persona_description}")
+                        # Try to extract persona description from the prompt text
+                        elif "prompt" in prompt:
+                            extracted_description = self._extract_persona_from_prompt_text(prompt["prompt"])
+                            if extracted_description:
+                                persona_description = extracted_description
+                                print(f"Extracted persona description from prompt text: {persona_description}")
+                        # Otherwise try to get persona ID and look up the persona
+                        elif "persona_id" in prompt:
+                            persona_id = prompt["persona_id"]
                 except Exception as e:
-                    print(f"Error finding persona ID: {str(e)}")
+                    print(f"Error finding persona details from prompt: {str(e)}")
         
-        # If we have a persona ID, get the persona details
+        # Approach 3: If we have a persona ID, get the persona details from MongoDB
         if persona_id and self.mongodb_available:
             try:
                 persona = self.db.personas_collection.find_one({"_id": persona_id})
                 if persona:
                     # Create a description of the persona
-                    persona_description = f"Persona: {persona.get('name', 'Unknown')}, "
-                    persona_description += f"Gender: {persona.get('gender', 'Unknown')}, "
-                    persona_description += f"Age: {persona.get('age', 'Unknown')}, "
-                    persona_description += f"Education: {persona.get('education', 'Unknown')}, "
-                    persona_description += f"Occupation: {persona.get('occupation', 'Unknown')}, "
-                    persona_description += f"Income: {persona.get('income', 'Unknown')}, "
-                    persona_description += f"Location: {persona.get('location', 'Unknown')}"
+                    persona_description = f"I am {persona.get('name', 'Unknown')}, a {persona.get('age', 'Unknown')}-year-old {persona.get('gender', 'Unknown')} "
+                    persona_description += f"from {persona.get('location', 'Unknown')}. "
+                    persona_description += f"I have {persona.get('education', 'Unknown')} education "
+                    persona_description += f"and work as a {persona.get('occupation', 'Unknown')}. "
+                    persona_description += f"My income level is {persona.get('income', 'Unknown')}."
+                    print(f"Created persona description from persona document: {persona_description}")
             except Exception as e:
-                print(f"Error finding persona details: {str(e)}")
+                print(f"Error finding persona details from MongoDB: {str(e)}")
+                
+        # Log the final persona description
+        print(f"Using persona description: {persona_description}")
         
         # Extract the responses from the conversations
         baseline_response = self._extract_response(baseline_conv)
