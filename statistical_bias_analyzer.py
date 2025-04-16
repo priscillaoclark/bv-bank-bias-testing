@@ -18,6 +18,7 @@ from nltk.sentiment import SentimentIntensityAnalyzer
 from nltk.tokenize import word_tokenize
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
+import textstat
 from datetime import datetime
 from dotenv import load_dotenv
 
@@ -36,6 +37,14 @@ except LookupError:
     nltk.download('punkt')
     nltk.download('vader_lexicon')
     nltk.download('stopwords')
+    
+# Check if textstat is installed, if not, provide installation instructions
+try:
+    import textstat
+except ImportError:
+    print("The textstat package is required for readability metrics.")
+    print("Please install it using: pip install textstat")
+    sys.exit(1)
 
 class StatisticalBiasAnalyzer:
     """
@@ -168,13 +177,57 @@ class StatisticalBiasAnalyzer:
             "difference": sentiment_diff
         }
     
+    def _analyze_readability_for_text(self, text: str) -> Dict[str, float]:
+        """Calculate readability metrics for a text.
+        
+        Args:
+            text: The text to analyze
+            
+        Returns:
+            Dictionary with readability metrics
+        """
+        # Handle empty or very short texts
+        if not text or len(text) < 50:
+            return {
+                "flesch_reading_ease": 0,
+                "flesch_kincaid_grade": 0,
+                "gunning_fog": 0,
+                "smog_index": 0,
+                "automated_readability_index": 0,
+                "coleman_liau_index": 0,
+                "dale_chall_readability_score": 0
+            }
+            
+        try:
+            # Calculate readability metrics
+            return {
+                "flesch_reading_ease": textstat.flesch_reading_ease(text),
+                "flesch_kincaid_grade": textstat.flesch_kincaid_grade(text),
+                "gunning_fog": textstat.gunning_fog(text),
+                "smog_index": textstat.smog_index(text),
+                "automated_readability_index": textstat.automated_readability_index(text),
+                "coleman_liau_index": textstat.coleman_liau_index(text),
+                "dale_chall_readability_score": textstat.dale_chall_readability_score(text)
+            }
+        except Exception as e:
+            print(f"Error calculating readability metrics: {str(e)}")
+            return {
+                "flesch_reading_ease": 0,
+                "flesch_kincaid_grade": 0,
+                "gunning_fog": 0,
+                "smog_index": 0,
+                "automated_readability_index": 0,
+                "coleman_liau_index": 0,
+                "dale_chall_readability_score": 0
+            }
+    
     def _analyze_metrics_for_pair(self, baseline_conversation: Dict, persona_conversation: Dict) -> Dict[str, Any]:
         """Analyze response metrics for a single conversation pair"""
         # Get the response texts
         baseline_text = self._get_response_text(baseline_conversation)
         persona_text = self._get_response_text(persona_conversation)
         
-        # Calculate metrics
+        # Calculate basic metrics
         baseline_metrics = {
             "length": len(baseline_text),
             "word_count": len(baseline_text.split()),
@@ -187,12 +240,18 @@ class StatisticalBiasAnalyzer:
             "sentence_count": len(nltk.sent_tokenize(persona_text))
         }
         
-        # Calculate differences
-        metrics_diff = {
-            "length": persona_metrics["length"] - baseline_metrics["length"],
-            "word_count": persona_metrics["word_count"] - baseline_metrics["word_count"],
-            "sentence_count": persona_metrics["sentence_count"] - baseline_metrics["sentence_count"]
-        }
+        # Calculate readability metrics
+        baseline_readability = self._analyze_readability_for_text(baseline_text)
+        persona_readability = self._analyze_readability_for_text(persona_text)
+        
+        # Add readability metrics to the basic metrics
+        baseline_metrics.update(baseline_readability)
+        persona_metrics.update(persona_readability)
+        
+        # Calculate differences for all metrics
+        metrics_diff = {}
+        for key in baseline_metrics.keys():
+            metrics_diff[key] = persona_metrics[key] - baseline_metrics[key]
         
         return {
             "baseline": baseline_metrics,

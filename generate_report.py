@@ -481,6 +481,53 @@ class ReportGenerator:
                     f.write(f"  - Mean: {statistics.mean(similarity_scores):.2f}\n")
                     f.write(f"  - Median: {statistics.median(similarity_scores):.2f}\n")
                     f.write(f"  - Range: {min(similarity_scores):.2f} - {max(similarity_scores):.2f}\n\n")
+                
+                # Collect readability metrics
+                readability_diffs = []
+                flesch_reading_ease_diffs = []
+                gunning_fog_diffs = []
+                flesch_kincaid_grade_diffs = []
+                
+                for stat in statistical_results:
+                    metrics = stat.get("metrics", {})
+                    
+                    readability_diff = metrics.get("readability_difference")
+                    if readability_diff is not None:
+                        readability_diffs.append(readability_diff)
+                    
+                    flesch_reading_ease_diff = metrics.get("flesch_reading_ease_difference")
+                    if flesch_reading_ease_diff is not None:
+                        flesch_reading_ease_diffs.append(flesch_reading_ease_diff)
+                    
+                    gunning_fog_diff = metrics.get("gunning_fog_difference")
+                    if gunning_fog_diff is not None:
+                        gunning_fog_diffs.append(gunning_fog_diff)
+                    
+                    flesch_kincaid_diff = metrics.get("flesch_kincaid_grade_difference")
+                    if flesch_kincaid_diff is not None:
+                        flesch_kincaid_grade_diffs.append(flesch_kincaid_diff)
+                
+                # Report readability metrics
+                if readability_diffs:
+                    f.write(f"Readability differences (baseline vs. persona):\n")
+                    f.write(f"  - Mean Flesch-Kincaid Grade Level Difference: {statistics.mean(readability_diffs):.2f}\n")
+                    f.write(f"  - Median Flesch-Kincaid Grade Level Difference: {statistics.median(readability_diffs):.2f}\n")
+                    f.write(f"  - Range: {min(readability_diffs):.2f} - {max(readability_diffs):.2f}\n")
+                    f.write(f"  - Interpretation: Positive values indicate the persona response is MORE complex than baseline\n\n")
+                
+                if flesch_reading_ease_diffs:
+                    f.write(f"Flesch Reading Ease differences (baseline vs. persona):\n")
+                    f.write(f"  - Mean: {statistics.mean(flesch_reading_ease_diffs):.2f}\n")
+                    f.write(f"  - Median: {statistics.median(flesch_reading_ease_diffs):.2f}\n")
+                    f.write(f"  - Range: {min(flesch_reading_ease_diffs):.2f} - {max(flesch_reading_ease_diffs):.2f}\n")
+                    f.write(f"  - Interpretation: Negative values indicate the persona response is MORE complex than baseline\n\n")
+                
+                if gunning_fog_diffs:
+                    f.write(f"Gunning Fog Index differences (baseline vs. persona):\n")
+                    f.write(f"  - Mean: {statistics.mean(gunning_fog_diffs):.2f}\n")
+                    f.write(f"  - Median: {statistics.median(gunning_fog_diffs):.2f}\n")
+                    f.write(f"  - Range: {min(gunning_fog_diffs):.2f} - {max(gunning_fog_diffs):.2f}\n")
+                    f.write(f"  - Interpretation: Positive values indicate the persona response is MORE complex than baseline\n\n")
             
             # Detailed analysis by persona
             f.write("\nDETAILED ANALYSIS BY PERSONA\n")
@@ -580,8 +627,25 @@ class ReportGenerator:
                             f.write(f"        Statistical Metrics:\n")
                             f.write(f"          - Sentiment Difference: {metrics.get('sentiment_difference', 'N/A')}\n")
                             f.write(f"          - Response Length Difference: {metrics.get('response_length_difference', 'N/A')}\n")
-                            f.write(f"          - Complexity Difference: {metrics.get('complexity_difference', 'N/A')}\n")
-                            f.write(f"          - Similarity Score: {metrics.get('similarity_score', 'N/A')}\n\n")
+                            f.write(f"          - Similarity Score: {metrics.get('similarity_score', 'N/A')}\n")
+                            
+                            # Add readability metrics if available
+                            readability_diff = metrics.get('readability_difference')
+                            if readability_diff is not None:
+                                f.write(f"          - Flesch-Kincaid Grade Level Difference: {readability_diff:.2f}\n")
+                                f.write(f"            (Positive values indicate MORE complex language for persona)\n")
+                            
+                            flesch_reading_ease_diff = metrics.get('flesch_reading_ease_difference')
+                            if flesch_reading_ease_diff is not None:
+                                f.write(f"          - Flesch Reading Ease Difference: {flesch_reading_ease_diff:.2f}\n")
+                                f.write(f"            (Negative values indicate MORE complex language for persona)\n")
+                            
+                            gunning_fog_diff = metrics.get('gunning_fog_difference')
+                            if gunning_fog_diff is not None:
+                                f.write(f"          - Gunning Fog Index Difference: {gunning_fog_diff:.2f}\n")
+                                f.write(f"            (Positive values indicate MORE complex language for persona)\n\n")
+                            else:
+                                f.write("\n")
                         
                         f.write("\n")
                 

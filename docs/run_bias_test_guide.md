@@ -42,7 +42,7 @@ This will use default values for all parameters:
 The script supports several command-line arguments to customize the testing process:
 
 ```bash
-python run_bias_test.py [--personas NUM_PERSONAS] [--products NUM_PRODUCTS] [--diversity DIVERSITY_STRATEGY] [--force-all] [--temperature TEMPERATURE] [--language LANGUAGE]
+python run_bias_test.py [--personas NUM_PERSONAS] [--products NUM_PRODUCTS] [--questions NUM_QUESTIONS] [--diversity DIVERSITY_STRATEGY] [--force-all] [--temperature TEMPERATURE] [--skip-personas] [--skip-prompts] [--skip-testing] [--skip-stats] [--skip-analysis] [--force-analysis] [--log-level LOG_LEVEL] [--run-id RUN_ID]
 ```
 
 ### Required Arguments
@@ -53,62 +53,82 @@ None. All arguments have default values.
 
 | Argument | Description | Default | Options |
 |----------|-------------|---------|---------|
-| `--personas` | Number of personas to generate | 3 | Any positive integer |
+| `--personas` | Number of personas to generate | 2 | Any positive integer |
 | `--products` | Number of products to test | 3 | Any positive integer |
-| `--diversity` | Diversity strategy for persona generation | "mixed" | "mixed", "conservative", "balanced", "creative" |
+| `--questions` | Number of questions per product | 2 | Any positive integer |
+| `--diversity` | Diversity strategy for persona generation | "mixed" | "mixed", "balanced", "diverse", "homogeneous" |
 | `--force-all` | Force re-analysis of all conversations | False | Flag (no value needed) |
-| `--temperature` | Specific temperature for persona generation | None | Float between 0.0 and 1.0 |
-| `--language` | Language for prompts and testing | "en" | "en" (English), "pt" (Portuguese) |
+| `--temperature` | Specific temperature for persona generation | 0.4 | Float between 0.0 and 1.0 |
+| `--skip-personas` | Skip persona generation step | False | Flag (no value needed) |
+| `--skip-prompts` | Skip prompt generation step | False | Flag (no value needed) |
+| `--skip-testing` | Skip chatbot testing step | False | Flag (no value needed) |
+| `--skip-stats` | Skip statistical analysis step | False | Flag (no value needed) |
+| `--skip-analysis` | Skip qualitative bias analysis step | False | Flag (no value needed) |
+| `--force-analysis` | Force re-analysis of conversations, even if already analyzed | False | Flag (no value needed) |
 | `--log-level` | Logging level | "INFO" | "DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL" |
 | `--run-id` | Custom run ID for logging | Auto-generated | Any string identifier |
+| `--baseline-prompt-id` | Baseline prompt ID for comparison | None | Any string identifier |
 
-## Examples
+## Example Commands
 
-### Generate 5 Personas with Balanced Diversity for 2 Products
-
-```bash
-python run_bias_test.py --personas 5 --products 2 --diversity balanced
-```
-
-This command will:
-- Generate 5 personas with balanced diversity (medium temperature range)
-- Test 2 randomly selected products from BV Bank's offerings
-- Use English as the default language
-- Skip analysis for conversation pairs that have already been analyzed
-
-### Test All Products with Creative Personas in Portuguese
+### Basic Test with Default Settings
 
 ```bash
-python run_bias_test.py --personas 3 --products 16 --diversity creative --language pt
+python run_bias_test.py
 ```
 
-This command will:
-- Generate 3 personas with creative diversity (high temperature range)
-- Test all 16 products in BV Bank's offerings
-- Use Portuguese for prompts and testing
-- Skip analysis for conversation pairs that have already been analyzed
-
-### Force Re-Analysis of All Conversations
+### Generate More Personas with Balanced Diversity
 
 ```bash
-python run_bias_test.py --personas 2 --products 2 --force-all
+python run_bias_test.py --personas 5 --diversity balanced
 ```
 
-This command will:
-- Generate 2 personas with mixed diversity
-- Test 2 randomly selected products
-- Force re-analysis of all conversation pairs, even if they've been analyzed before
-
-### Use a Specific Temperature for Persona Generation
+### Test Specific Products
 
 ```bash
-python run_bias_test.py --personas 3 --temperature 0.8
+python run_bias_test.py --products 2
 ```
 
-This command will:
-- Generate 3 personas using a fixed temperature of 0.8 (more creative/diverse)
-- Test 3 randomly selected products
-- Skip analysis for conversation pairs that have already been analyzed
+### Force Processing of All Data
+
+```bash
+python run_bias_test.py --force-all
+```
+
+### Skip Persona Generation and Prompt Generation
+
+```bash
+python run_bias_test.py --skip-personas --skip-prompts
+```
+
+### Run Only Statistical Analysis on Existing Data
+
+```bash
+python run_bias_test.py --skip-personas --skip-prompts --skip-testing --skip-analysis
+```
+
+### Generate Report from Analysis Results
+
+```bash
+python generate_report.py
+```
+
+## Workflow Modes
+
+The script supports two main workflow modes:
+
+1. **Default Mode**: Process only newly generated data
+   - Generates new personas and tracks them with `new_persona_ids`
+   - Creates prompts only for those newly generated personas using `generate_prompts_for_specific_personas`
+   - Tests only those new prompts and tracks conversations with `new_conversation_ids`
+   - Analyzes only the new conversations with `analyze_specific_conversations`
+
+2. **Comprehensive Mode**: Process all available data
+   - Use the `--force-all` flag to process all data regardless of what's already been analyzed
+   - Generates all personas
+   - Creates prompts for all personas
+   - Tests all prompts
+   - Analyzes all conversations
 
 ## Process Flow
 
@@ -275,3 +295,21 @@ For more detailed information about the individual components of the bias testin
 - `chatbot_tester.py`: Tests the Aurora chatbot with generated prompts
 - `statistical_bias_analyzer.py`: Performs statistical analysis of chatbot responses
 - `bias_analyzer.py`: Conducts qualitative bias analysis using Gemini
+
+## Related Files
+
+The bias testing system includes several related files:
+
+- `persona_generator.py`: Generates diverse personas
+- `prompt_generator.py`: Creates baseline and persona-specific prompts
+- `chatbot_tester.py`: Tests the Aurora chatbot with generated prompts
+- `statistical_bias_analyzer.py`: Performs statistical analysis of chatbot responses
+- `bias_analyzer.py`: Conducts qualitative bias analysis using Gemini
+- `clean_data.py`: Deletes all data from MongoDB collections and local files
+- `generate_report.py`: Creates comprehensive text-based reports from analysis results
+
+## Documentation
+
+Additional documentation is available in the `docs` directory:
+
+- `statistical_methods.md`: Detailed documentation of statistical methods used for bias detection

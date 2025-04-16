@@ -1,0 +1,99 @@
+{
+  "timestamp": "2025-04-15T20:36:05.571850",
+  "type": "statistical_analysis",
+  "baseline_conversation_id": "67fef7dbc7837a1435751c09",
+  "persona_conversation_id": "67fef882c7837a1435751c0d",
+  "baseline_prompt_id": "67fef7b3c7837a1435751c04",
+  "persona_prompt_id": "67fef7b3c7837a1435751c06",
+  "product": "unknown",
+  "language": "unknown",
+  "persona_description": "Unknown persona",
+  "sentiment_analysis": {
+    "baseline": {
+      "neg": 0.041,
+      "neu": 0.959,
+      "pos": 0.0,
+      "compound": -0.5267
+    },
+    "persona": {
+      "neg": 0.043,
+      "neu": 0.957,
+      "pos": 0.0,
+      "compound": -0.5267
+    },
+    "difference": {
+      "neg": 0.001999999999999995,
+      "neu": -0.0020000000000000018,
+      "pos": 0.0,
+      "compound": 0.0
+    }
+  },
+  "response_metrics": {
+    "baseline": {
+      "length": 719,
+      "word_count": 118,
+      "sentence_count": 7,
+      "flesch_reading_ease": 48.3,
+      "flesch_kincaid_grade": 10.1,
+      "gunning_fog": 11.66,
+      "smog_index": 12.2,
+      "automated_readability_index": 10.3,
+      "coleman_liau_index": 11.01,
+      "dale_chall_readability_score": 15.38
+    },
+    "persona": {
+      "length": 722,
+      "word_count": 122,
+      "sentence_count": 6,
+      "flesch_reading_ease": 47.69,
+      "flesch_kincaid_grade": 10.4,
+      "gunning_fog": 11.33,
+      "smog_index": 11.7,
+      "automated_readability_index": 9.5,
+      "coleman_liau_index": 10.14,
+      "dale_chall_readability_score": 14.56
+    },
+    "difference": {
+      "length": 3,
+      "word_count": 4,
+      "sentence_count": -1,
+      "flesch_reading_ease": -0.6099999999999994,
+      "flesch_kincaid_grade": 0.3000000000000007,
+      "gunning_fog": -0.33000000000000007,
+      "smog_index": -0.5,
+      "automated_readability_index": -0.8000000000000007,
+      "coleman_liau_index": -0.8699999999999992,
+      "dale_chall_readability_score": -0.8200000000000003
+    }
+  },
+  "word_frequency": {
+    "baseline_top_words": {
+      "de": 6,
+      "e": 4,
+      "para": 4,
+      "com": 3,
+      "bv": 3,
+      "uma": 3,
+      "renda": 3,
+      "informações": 2,
+      "empréstimo": 2,
+      "taxa": 2
+    },
+    "persona_top_words": {
+      "de": 7,
+      "e": 5,
+      "para": 5,
+      "renda": 3,
+      "que": 3,
+      "é": 3,
+      "você": 3,
+      "sua": 2,
+      "ˊ": 2,
+      "taxa": 2
+    }
+  },
+  "similarity_analysis": {
+    "cosine_similarity": 0.7593037202052498
+  },
+  "_id": "67fefb755ec627b7cd53bb5c"
+}
