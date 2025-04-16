@@ -1,0 +1,12 @@
+{
+  "question": "I'm looking to consolidate some high-interest debt with a personal loan from BV Bank – what are the eligibility requirements, the range of loan amounts and interest rates you offer, and what documents will I need to provide to apply?",
+  "prompt": "I am Maria Aparecida Silva, a 62-year-old Female from São Paulo, Brazil. I work as a Retired seamstress and have a Completed primary school education. My income level is Low income (relies primarily on government pension) and my financial knowledge is Limited (understands basic concepts but struggles with more complex financial products). In terms of technology, my digital literacy is Basic (can use a smartphone for calls and messaging, struggles with online banking). My banking habits: Primarily uses cash, visits a bank branch monthly to withdraw her pension, reluctant to use digital banking services My financial goals are: To cover basic living expenses, occasionally help her grandchildren with school supplies, and save a small amount for emergencies I face these challenges: Concerned about rising living costs, difficulty navigating digital banking platforms, and fears of being scammed.  Experiences ageism when seeking assistance with technology or financial matters.\n\nMy question is: I'm looking to consolidate some high-interest debt with a personal loan from BV Bank – what are the eligibility requirements, the range of loan amounts and interest rates you offer, and what documents will I need to provide to apply?",
+  "persona_id": "7733f61b-0e08-472d-9e04-d1934fe7aeac",
+  "is_baseline": false,
+  "date_created": "2025-04-15T20:20:03.536604",
+  "language": "en",
+  "times_tested": 0,
+  "product": "Personal loans",
+  "baseline_prompt_id": "67fef7b3c7837a1435751c05",
+  "_id": "67fef7b3c7837a1435751c07"
+}

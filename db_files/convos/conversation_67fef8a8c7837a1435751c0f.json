@@ -1,0 +1,23 @@
+{
+  "conversation_id": "conv_20250415202346_5371",
+  "prompt_id": "67fef7b3c7837a1435751c05",
+  "turns": [
+    {
+      "role": "user",
+      "content": "I'm looking to consolidate some high-interest debt with a personal loan from BV Bank \u2013 what are the eligibility requirements, the range of loan amounts and interest rates you offer, and what documents will I need to provide to apply?",
+      "timestamp": "2025-04-15T20:24:08.647585",
+      "language": "en"
+    },
+    {
+      "role": "assistant",
+      "content": "I understand you're interested in a personal loan from BV Bank to consolidate high-interest debt. Here's what you need to know:\nEligibility:\nMust be at least 18 years old\nSubject to credit approval\nLoan details:\nMinimum loan amount: R$100\nMaximum loan amount: Up to 2x your gross monthly income\nRepayment terms: Up to 24 months\nInterest rates: Personalized based on your profile (you can check exact rates by doing a simulation on the official website)\nRequired documents:\nGovernment-issued ID (RG and CPF or driver's license)\nProof of income\nTo apply, you can visit BV's website or use their app to simulate and request your loan. The process is fully digital and doesn't require visiting a branch.\nIs there anything else you'd like to know about BV's personal loans?",
+      "timestamp": "2025-04-15T20:24:08.647596",
+      "language": "en"
+    }
+  ],
+  "date_created": "2025-04-15T20:24:08.647601",
+  "model_info": {
+    "model": "Aurora BV 2025"
+  },
+  "_id": "67fef8a8c7837a1435751c0f"
+}

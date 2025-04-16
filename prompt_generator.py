@@ -113,6 +113,40 @@ class PromptGenerator:
             print(f"Error loading personas from local files: {str(file_e)}")
         
         return personas
+        
+    def load_all_prompts(self) -> List[Dict[str, Any]]:
+        """Load all available prompts from MongoDB or local files."""
+        prompts = []
+        
+        # Try to load from MongoDB first
+        if self.mongodb_available:
+            try:
+                cursor = self.db.prompts_collection.find({})
+                for doc in cursor:
+                    # Convert ObjectId to string for JSON serialization
+                    if '_id' in doc and not isinstance(doc['_id'], str):
+                        doc['_id'] = str(doc['_id'])
+                    prompts.append(doc)
+                print(f"Loaded {len(prompts)} prompts from MongoDB.")
+                
+                if prompts:
+                    return prompts
+            except Exception as mongo_e:
+                print(f"Error loading prompts from MongoDB: {str(mongo_e)}")
+        
+        # Fall back to loading from local files
+        try:
+            prompt_files = [f for f in os.listdir(self.prompts_dir) if f.endswith('.json')]
+            for file_name in prompt_files:
+                file_path = os.path.join(self.prompts_dir, file_name)
+                with open(file_path, 'r', encoding='utf-8') as f:
+                    prompt = json.load(f)
+                    prompts.append(prompt)
+            print(f"Loaded {len(prompts)} prompts from local files.")
+        except Exception as file_e:
+            print(f"Error loading prompts from local files: {str(file_e)}")
+        
+        return prompts
     
     def create_persona_description(self, persona: Dict[str, Any]) -> str:
         """Create a first-person description of the persona."""
@@ -357,6 +391,8 @@ class PromptGenerator:
                 # Portuguese persona prompt
                 print(f"Generating Portuguese persona prompt for {persona['name']} about {product}")
                 pt_persona_doc = self.generate_persona_prompt(pt_question, persona, language="pt", product=product)
+                # Add the baseline prompt ID to the persona prompt for easier matching
+                pt_persona_doc["baseline_prompt_id"] = pt_baseline_id
                 pt_persona_id = self.save_prompt(pt_persona_doc)
                 if pt_persona_id:
                     prompt_ids.append(pt_persona_id)
@@ -364,6 +400,87 @@ class PromptGenerator:
                 # English persona prompt
                 print(f"Generating English persona prompt for {persona['name']} about {product}")
                 en_persona_doc = self.generate_persona_prompt(en_question, persona, language="en", product=product)
+                # Add the baseline prompt ID to the persona prompt for easier matching
+                en_persona_doc["baseline_prompt_id"] = en_baseline_id
+                en_persona_id = self.save_prompt(en_persona_doc)
+                if en_persona_id:
+                    prompt_ids.append(en_persona_id)
+        
+        return prompt_ids
+        
+    def generate_prompts_for_specific_personas(self, persona_ids: List[str], num_products: int = 5, questions_per_product: int = 1) -> List[str]:
+        """Generate prompts only for specific personas in both English and Portuguese.
+        
+        Args:
+            persona_ids: List of persona IDs to generate prompts for
+            num_products: Number of products to generate questions for
+            questions_per_product: Number of questions to generate per product
+            
+        Returns:
+            List of generated prompt IDs
+        """
+        prompt_ids = []
+        
+        # Load all personas
+        all_personas = self.load_personas()
+        if not all_personas:
+            print("No personas found. Please generate personas first.")
+            return []
+        
+        # Filter personas by the provided IDs
+        personas = [p for p in all_personas if p.get("_id") in persona_ids]
+        if not personas:
+            print(f"None of the specified persona IDs {persona_ids} were found.")
+            return []
+            
+        print(f"Found {len(personas)} personas out of {len(persona_ids)} requested.")
+        
+        # Select a subset of products to use
+        selected_products = random.sample(self.bv_products, min(num_products, len(self.bv_products)))
+        print(f"Selected {len(selected_products)} products: {', '.join(selected_products)}")
+        
+        # Generate prompts for each selected product
+        for product in selected_products:
+            # Generate specified number of questions per product
+            for q in range(questions_per_product):
+                print(f"\nGenerating question {q+1}/{questions_per_product} for product: {product}")
+                
+                # Generate both Portuguese and English questions for this product
+                pt_question, en_question, _ = self.generate_product_questions_for_specific_product(product)
+            
+            # Generate baseline prompts (without persona context) in both languages
+            print(f"\nGenerating baseline prompts for product: {product}")
+            print(f"Portuguese Question: {pt_question}")
+            print(f"English Question: {en_question}")
+            
+            # Portuguese baseline
+            pt_baseline_doc = self.generate_baseline_prompt(pt_question, language="pt", product=product)
+            pt_baseline_id = self.save_prompt(pt_baseline_doc)
+            if pt_baseline_id:
+                prompt_ids.append(pt_baseline_id)
+            
+            # English baseline
+            en_baseline_doc = self.generate_baseline_prompt(en_question, language="en", product=product)
+            en_baseline_id = self.save_prompt(en_baseline_doc)
+            if en_baseline_id:
+                prompt_ids.append(en_baseline_id)
+            
+            # Generate a prompt for each specified persona in both languages
+            for persona in personas:
+                # Portuguese persona prompt
+                print(f"Generating Portuguese persona prompt for {persona['name']} about {product}")
+                pt_persona_doc = self.generate_persona_prompt(pt_question, persona, language="pt", product=product)
+                # Add the baseline prompt ID to the persona prompt for easier matching
+                pt_persona_doc["baseline_prompt_id"] = pt_baseline_id
+                pt_persona_id = self.save_prompt(pt_persona_doc)
+                if pt_persona_id:
+                    prompt_ids.append(pt_persona_id)
+                
+                # English persona prompt
+                print(f"Generating English persona prompt for {persona['name']} about {product}")
+                en_persona_doc = self.generate_persona_prompt(en_question, persona, language="en", product=product)
+                # Add the baseline prompt ID to the persona prompt for easier matching
+                en_persona_doc["baseline_prompt_id"] = en_baseline_id
                 en_persona_id = self.save_prompt(en_persona_doc)
                 if en_persona_id:
                     prompt_ids.append(en_persona_id)

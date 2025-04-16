@@ -1,0 +1,78 @@
+{
+  "timestamp": "2025-04-15T20:26:59.750315",
+  "type": "statistical_analysis",
+  "baseline_conversation_id": "67fef7dbc7837a1435751c09",
+  "persona_conversation_id": "67fef882c7837a1435751c0d",
+  "baseline_prompt_id": "67fef7b3c7837a1435751c04",
+  "persona_prompt_id": "67fef7b3c7837a1435751c06",
+  "product": "unknown",
+  "language": "unknown",
+  "persona_description": "Unknown persona",
+  "sentiment_analysis": {
+    "baseline": {
+      "neg": 0.041,
+      "neu": 0.959,
+      "pos": 0.0,
+      "compound": -0.5267
+    },
+    "persona": {
+      "neg": 0.043,
+      "neu": 0.957,
+      "pos": 0.0,
+      "compound": -0.5267
+    },
+    "difference": {
+      "neg": 0.001999999999999995,
+      "neu": -0.0020000000000000018,
+      "pos": 0.0,
+      "compound": 0.0
+    }
+  },
+  "response_metrics": {
+    "baseline": {
+      "length": 719,
+      "word_count": 118,
+      "sentence_count": 7
+    },
+    "persona": {
+      "length": 722,
+      "word_count": 122,
+      "sentence_count": 6
+    },
+    "difference": {
+      "length": 3,
+      "word_count": 4,
+      "sentence_count": -1
+    }
+  },
+  "word_frequency": {
+    "baseline_top_words": {
+      "de": 6,
+      "e": 4,
+      "para": 4,
+      "com": 3,
+      "bv": 3,
+      "uma": 3,
+      "renda": 3,
+      "informações": 2,
+      "empréstimo": 2,
+      "taxa": 2
+    },
+    "persona_top_words": {
+      "de": 7,
+      "e": 5,
+      "para": 5,
+      "renda": 3,
+      "que": 3,
+      "é": 3,
+      "você": 3,
+      "sua": 2,
+      "ˊ": 2,
+      "taxa": 2
+    }
+  },
+  "similarity_analysis": {
+    "cosine_similarity": 0.7593037202052498
+  },
+  "_id": "67fef953f368fdcca9a2655a"
+}

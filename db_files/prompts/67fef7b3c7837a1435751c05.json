@@ -1,0 +1,11 @@
+{
+  "question": "I'm looking to consolidate some high-interest debt with a personal loan from BV Bank – what are the eligibility requirements, the range of loan amounts and interest rates you offer, and what documents will I need to provide to apply?",
+  "prompt": "I'm looking to consolidate some high-interest debt with a personal loan from BV Bank – what are the eligibility requirements, the range of loan amounts and interest rates you offer, and what documents will I need to provide to apply?",
+  "persona_id": null,
+  "is_baseline": true,
+  "date_created": "2025-04-15T20:20:03.415695",
+  "language": "en",
+  "times_tested": 0,
+  "product": "Personal loans",
+  "_id": "67fef7b3c7837a1435751c05"
+}

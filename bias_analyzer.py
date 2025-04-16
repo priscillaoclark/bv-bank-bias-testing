@@ -116,7 +116,141 @@ class BiasAnalyzer:
         
         print(f"Conversation not found: {conversation_id}")
         return None
+        
+    def load_prompt(self, prompt_id: str) -> Optional[Dict[str, Any]]:
+        """Load a prompt from MongoDB or local file.
+        
+        Args:
+            prompt_id: ID of the prompt to load
+            
+        Returns:
+            Dictionary containing the prompt, or None if not found
+        """
+        # Try to load from MongoDB first
+        if self.mongodb_available:
+            try:
+                prompt = self.db.prompts_collection.find_one({"_id": prompt_id})
+                if prompt:
+                    return prompt
+            except Exception as e:
+                print(f"Error loading prompt from MongoDB: {str(e)}")
+        
+        # If MongoDB failed or not available, try to load from local file
+        try:
+            file_path = os.path.join("db_files", "prompts", f"{prompt_id}.json")
+            if os.path.exists(file_path):
+                with open(file_path, 'r', encoding='utf-8') as f:
+                    return json.load(f)
+        except Exception as e:
+            print(f"Error loading prompt from local file: {str(e)}")
+        
+        print(f"Prompt not found: {prompt_id}")
+        return None
     
+    def find_prompt_pairs(self) -> List[Dict[str, Any]]:
+        """Find pairs of baseline and persona-specific prompts."""
+        
+    def find_baseline_prompt(self, question: str, language: str = None, product: str = None) -> Optional[Dict[str, Any]]:
+        """Find a baseline prompt with the same question, language, and product.
+        
+        Args:
+            question: The question text to match
+            language: Optional language code ('en' or 'pt')
+            product: Optional product name
+            
+        Returns:
+            Dictionary containing the baseline prompt, or None if not found
+        """
+        # Try to find from MongoDB first
+        if self.mongodb_available:
+            try:
+                # Build the query
+                query = {
+                    "question": question,
+                    "is_baseline": True
+                }
+                
+                # Add optional filters
+                if language:
+                    query["language"] = language
+                if product:
+                    query["product"] = product
+                    
+                # Find the prompt
+                prompt = self.db.prompts_collection.find_one(query)
+                if prompt:
+                    return prompt
+            except Exception as e:
+                print(f"Error finding baseline prompt from MongoDB: {str(e)}")
+        
+        # If MongoDB failed or not available, try to find from local files
+        try:
+            prompts_dir = os.path.join("db_files", "prompts")
+            if os.path.exists(prompts_dir):
+                # Get all prompt files
+                prompt_files = [f for f in os.listdir(prompts_dir) if f.endswith('.json')]
+                
+                # Check each prompt file
+                for file_name in prompt_files:
+                    file_path = os.path.join(prompts_dir, file_name)
+                    with open(file_path, 'r', encoding='utf-8') as f:
+                        prompt = json.load(f)
+                        
+                        # Check if this is a matching baseline prompt
+                        if prompt.get("question") == question and prompt.get("is_baseline") == True:
+                            # Check optional filters
+                            if language and prompt.get("language") != language:
+                                continue
+                            if product and prompt.get("product") != product:
+                                continue
+                                
+                            return prompt
+        except Exception as e:
+            print(f"Error finding baseline prompt from local files: {str(e)}")
+        
+        print(f"Baseline prompt not found for question: {question}")
+        return None
+        
+    def find_conversation_for_prompt(self, prompt_id: str) -> Optional[Dict[str, Any]]:
+        """Find a conversation for a specific prompt.
+        
+        Args:
+            prompt_id: ID of the prompt to find conversation for
+            
+        Returns:
+            Dictionary containing the conversation, or None if not found
+        """
+        # Try to find from MongoDB first
+        if self.mongodb_available:
+            try:
+                conversation = self.db.conversations_collection.find_one({"prompt_id": prompt_id})
+                if conversation:
+                    return conversation
+            except Exception as e:
+                print(f"Error finding conversation for prompt from MongoDB: {str(e)}")
+        
+        # If MongoDB failed or not available, try to find from local files
+        try:
+            convos_dir = os.path.join("db_files", "convos")
+            if os.path.exists(convos_dir):
+                # Get all conversation files
+                convo_files = [f for f in os.listdir(convos_dir) if f.endswith('.json')]
+                
+                # Check each conversation file
+                for file_name in convo_files:
+                    file_path = os.path.join(convos_dir, file_name)
+                    with open(file_path, 'r', encoding='utf-8') as f:
+                        conversation = json.load(f)
+                        
+                        # Check if this is a matching conversation
+                        if conversation.get("prompt_id") == prompt_id:
+                            return conversation
+        except Exception as e:
+            print(f"Error finding conversation for prompt from local files: {str(e)}")
+        
+        print(f"Conversation not found for prompt: {prompt_id}")
+        return None
+        
     def find_prompt_pairs(self) -> List[Dict[str, Any]]:
         """Find pairs of baseline and persona-specific prompts."""
         prompt_pairs = []
@@ -680,12 +814,14 @@ class BiasAnalyzer:
             return analysis_id if analysis_id else None
     
     def analyze_all_conversation_pairs(self, force_all: bool = False, 
-                                      stats_data: Optional[Dict[str, Any]] = None) -> List[str]:
+                                       stats_data: Optional[Dict[str, Any]] = None,
+                                       filter_ids: Optional[List[str]] = None) -> List[str]:
         """Analyze all pairs of baseline and persona-specific conversations for bias.
         
         Args:
             force_all: If True, analyze all pairs even if they've already been analyzed
             stats_data: Optional statistical analysis data to incorporate
+            filter_ids: Optional list of conversation IDs to filter by (only analyze these)
             
         Returns:
             List of analysis IDs
@@ -693,9 +829,102 @@ class BiasAnalyzer:
         # Find all conversation pairs
         conversation_pairs = self.find_conversation_pairs(skip_analyzed=not force_all)
         
+        # Filter by conversation IDs if specified
+        if filter_ids:
+            filtered_pairs = []
+            for pair in conversation_pairs:
+                persona_id = pair['persona_conversation'].get('_id')
+                if persona_id in filter_ids:
+                    filtered_pairs.append(pair)
+            conversation_pairs = filtered_pairs
+            print(f"Filtered to {len(conversation_pairs)} conversation pairs based on {len(filter_ids)} specified IDs")
+        
         analysis_ids = []
         for pair in conversation_pairs:
             print(f"Analyzing conversation pair: {pair['baseline_conversation'].get('_id')} and {pair['persona_conversation'].get('_id')}")
+            
+            # Analyze the conversation pair
+            analysis = self.analyze_conversation_pair(pair, stats_data)
+            
+            # Save the analysis
+            analysis_id = self.save_analysis(analysis)
+            if analysis_id:
+                analysis_ids.append(analysis_id)
+        
+        return analysis_ids
+        
+    def analyze_specific_conversation_pairs(self, conversation_ids: List[str], 
+                                           force_all: bool = False,
+                                           stats_data: Optional[Dict[str, Any]] = None) -> List[str]:
+        """Analyze specific conversation pairs for bias.
+        
+        Args:
+            conversation_ids: List of persona conversation IDs to analyze
+            force_all: If True, analyze even if already analyzed
+            stats_data: Optional statistical analysis data to incorporate
+            
+        Returns:
+            List of analysis IDs
+        """
+        print(f"Analyzing {len(conversation_ids)} specific conversation pairs")
+        
+        # Find the baseline conversations for each persona conversation
+        pairs_to_analyze = []
+        
+        for persona_id in conversation_ids:
+            # Load the persona conversation
+            persona_conv = self.load_conversation(persona_id)
+            if not persona_conv:
+                print(f"Warning: Could not find conversation with ID: {persona_id}")
+                continue
+                
+            # Find the corresponding baseline conversation
+            prompt_id = persona_conv.get('prompt_id')
+            if not prompt_id:
+                print(f"Warning: Conversation {persona_id} has no prompt_id")
+                continue
+                
+            # Load the prompt to get the question
+            prompt = self.load_prompt(prompt_id)
+            if not prompt:
+                print(f"Warning: Could not find prompt with ID: {prompt_id}")
+                continue
+                
+            # Find the baseline prompt with the same question
+            baseline_prompt = self.find_baseline_prompt(prompt.get('question'), prompt.get('language'), prompt.get('product'))
+            if not baseline_prompt:
+                print(f"Warning: Could not find baseline prompt for question: {prompt.get('question')}")
+                continue
+                
+            # Find the baseline conversation for this prompt
+            baseline_conv = self.find_conversation_for_prompt(baseline_prompt.get('_id'))
+            if not baseline_conv:
+                print(f"Warning: Could not find baseline conversation for prompt: {baseline_prompt.get('_id')}")
+                continue
+                
+            # Create a pair and add it to the list
+            pair = {
+                'baseline_conversation': baseline_conv,
+                'persona_conversation': persona_conv,
+                'prompt': prompt
+            }
+            pairs_to_analyze.append(pair)
+            
+        print(f"Found {len(pairs_to_analyze)} valid conversation pairs to analyze")
+        
+        # Analyze each pair
+        analysis_ids = []
+        for pair in pairs_to_analyze:
+            print(f"Analyzing conversation pair: {pair['baseline_conversation'].get('_id')} and {pair['persona_conversation'].get('_id')}")
+            
+            # Check if this pair has already been analyzed and we're not forcing re-analysis
+            if not force_all:
+                existing_analysis = self.find_existing_analysis(pair['baseline_conversation'].get('_id'), 
+                                                              pair['persona_conversation'].get('_id'))
+                if existing_analysis:
+                    print(f"Skipping already analyzed pair: {pair['baseline_conversation'].get('_id')} and {pair['persona_conversation'].get('_id')}")
+                    analysis_ids.append(existing_analysis.get('_id'))
+                    continue
             
             # Analyze the conversation pair
             analysis = self.analyze_conversation_pair(pair, stats_data)

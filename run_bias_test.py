@@ -49,6 +49,11 @@ class BiasTester:
         self.prompt_generator = PromptGenerator()
         self.statistical_analyzer = StatisticalBiasAnalyzer()
         self.bias_analyzer = BiasAnalyzer()
+        
+        # Track newly generated items for this run
+        self.new_persona_ids = []
+        self.new_prompt_ids = []
+        self.new_conversation_ids = {}
     
     def generate_personas(self, num_personas: int, diversity_strategy: str = "mixed", temperature: float = None, enforce_diversity: bool = True) -> List[str]:
         """Generate personas for testing.
@@ -207,16 +212,44 @@ class BiasTester:
         
         # Pass the statistical data to the bias analyzer
         return self.bias_analyzer.analyze_all_conversation_pairs(force_all=force_all, stats_data=stats_data)
+        
+    def analyze_specific_conversations(self, conversation_ids: List[str], force_all: bool = False) -> List[str]:
+        """Analyze specific conversations for bias using both statistical and qualitative approaches.
+        
+        Args:
+            conversation_ids: List of conversation IDs to analyze
+            force_all: If True, re-analyze conversations even if already analyzed
+            
+        Returns:
+            List of analysis IDs from the qualitative analysis
+        """
+        # Step 1: Run statistical analysis on specific conversations
+        self.logger.info(f"Running statistical analysis on {len(conversation_ids)} specific conversations")
+        stats_data = self.run_statistical_analysis_for_specific_conversations(conversation_ids)
+        
+        # Step 2: Run qualitative analysis with statistical context
+        self.logger.info(f"Analyzing {len(conversation_ids)} specific conversations for bias with statistical context")
+        if force_all:
+            self.logger.info("Forcing re-analysis of conversations, even those already analyzed")
+            
+        # Check if the bias_analyzer has the analyze_specific_conversation_pairs method
+        if hasattr(self.bias_analyzer, 'analyze_specific_conversation_pairs'):
+            return self.bias_analyzer.analyze_specific_conversation_pairs(conversation_ids, force_all=force_all, stats_data=stats_data)
+        else:
+            # Fallback to using the analyze_all_conversation_pairs method with filtering
+            self.logger.warning("analyze_specific_conversation_pairs method not available in BiasAnalyzer. Using fallback approach.")
+            # We'll need to implement this in the BiasAnalyzer class
+            return self.bias_analyzer.analyze_all_conversation_pairs(force_all=force_all, stats_data=stats_data, filter_ids=conversation_ids)
     
     def run_statistical_analysis(self) -> Dict[str, Any]:
-        """Run statistical analysis on conversation pairs.
+        """Run statistical analysis on all conversation pairs.
         
         Returns:
             Dictionary containing statistical analysis results
         """
         try:
             # Find conversation pairs
-            self.logger.info("Finding conversation pairs for statistical analysis...")
+            self.logger.info("Finding all conversation pairs for statistical analysis...")
             conversation_pairs = []
             
             # Get conversation pairs from the bias analyzer
@@ -225,6 +258,137 @@ class BiasTester:
                 for pair in pairs:
                     baseline_conv = pair.get("baseline_conversation")
                     persona_conv = pair.get("persona_conversation")
+                    if baseline_conv and persona_conv:
+                        conversation_pairs.append((baseline_conv, persona_conv))
+            
+            if not conversation_pairs:
+                self.logger.warning("No conversation pairs found for statistical analysis.")
+                return {}
+            
+            self.logger.info(f"Found {len(conversation_pairs)} conversation pairs for statistical analysis.")
+            
+            # Run the statistical analysis
+            self.logger.info("Running statistical analysis...")
+            stats_results = self.statistical_analyzer.analyze_conversation_pairs(conversation_pairs)
+            
+            # Save the results
+            stats_data = {
+                "timestamp": datetime.now().isoformat(),
+                "num_pairs": len(conversation_pairs),
+                "results": stats_results
+            }
+            
+            self.logger.info("Statistical analysis complete.")
+            return stats_data
+        except Exception as e:
+            self.logger.error(f"Error running statistical analysis: {str(e)}")
+            return {}
+            
+    def find_baseline_for_conversation(self, conversation_id: str) -> Optional[str]:
+        """Find the baseline conversation ID for a persona conversation.
+        
+        Args:
+            conversation_id: ID of the persona conversation
+            
+        Returns:
+            ID of the baseline conversation, or None if not found
+        """
+        try:
+            # Load the persona conversation
+            persona_conv = None
+            if hasattr(self.bias_analyzer, 'load_conversation'):
+                persona_conv = self.bias_analyzer.load_conversation(conversation_id)
+            
+            if not persona_conv:
+                self.logger.warning(f"Could not find conversation with ID: {conversation_id}")
+                return None
+                
+            # Get the prompt ID for this conversation
+            prompt_id = persona_conv.get('prompt_id')
+            if not prompt_id:
+                self.logger.warning(f"Conversation {conversation_id} has no prompt_id")
+                return None
+                
+            # Load the prompt
+            prompt = None
+            if hasattr(self.bias_analyzer, 'load_prompt'):
+                prompt = self.bias_analyzer.load_prompt(prompt_id)
+            
+            if not prompt:
+                self.logger.warning(f"Could not find prompt with ID: {prompt_id}")
+                return None
+            
+            # Check if the prompt has a baseline_prompt_id field (new approach)
+            baseline_prompt_id = prompt.get('baseline_prompt_id')
+            if baseline_prompt_id:
+                self.logger.info(f"Found baseline prompt ID from persona prompt: {baseline_prompt_id}")
+                # Find the baseline conversation for this prompt
+                if hasattr(self.bias_analyzer, 'find_conversation_for_prompt'):
+                    baseline_conv = self.bias_analyzer.find_conversation_for_prompt(baseline_prompt_id)
+                    if baseline_conv:
+                        baseline_conv_id = baseline_conv.get('_id')
+                        return baseline_conv_id
+            
+            # Fallback to the old approach if baseline_prompt_id is not available
+            self.logger.info("Falling back to finding baseline prompt by question matching")
+            baseline_prompt = None
+            if hasattr(self.bias_analyzer, 'find_baseline_prompt'):
+                baseline_prompt = self.bias_analyzer.find_baseline_prompt(
+                    prompt.get('question'), 
+                    prompt.get('language'), 
+                    prompt.get('product')
+                )
+            
+            if not baseline_prompt:
+                self.logger.warning(f"Could not find baseline prompt for question: {prompt.get('question')}")
+                return None
+                
+            # Find the baseline conversation for this prompt
+            baseline_conv_id = None
+            if hasattr(self.bias_analyzer, 'find_conversation_for_prompt'):
+                baseline_conv = self.bias_analyzer.find_conversation_for_prompt(baseline_prompt.get('_id'))
+                if baseline_conv:
+                    baseline_conv_id = baseline_conv.get('_id')
+            
+            if not baseline_conv_id:
+                self.logger.warning(f"Could not find baseline conversation for prompt: {baseline_prompt.get('_id')}")
+                return None
+                
+            return baseline_conv_id
+            
+        except Exception as e:
+            self.logger.error(f"Error finding baseline for conversation {conversation_id}: {str(e)}")
+            return None
+    
+    def run_statistical_analysis_for_specific_conversations(self, conversation_ids: List[str]) -> Dict[str, Any]:
+        """Run statistical analysis on specific conversation pairs.
+        
+        Args:
+            conversation_ids: List of persona conversation IDs to analyze
+            
+        Returns:
+            Dictionary containing statistical analysis results
+        """
+        try:
+            # Find conversation pairs for the specified conversations
+            self.logger.info(f"Finding conversation pairs for {len(conversation_ids)} specific conversations...")
+            conversation_pairs = []
+            
+            for conv_id in conversation_ids:
+                # Find the baseline conversation for this persona conversation
+                baseline_id = self.find_baseline_for_conversation(conv_id)
+                if baseline_id:
+                    # Get the conversations
+                    baseline_conv = None
+                    persona_conv = None
+                    try:
+                        if hasattr(self.bias_analyzer.db, 'conversations_collection'):
+                            baseline_conv = self.bias_analyzer.db.conversations_collection.find_one({"_id": baseline_id})
+                            persona_conv = self.bias_analyzer.db.conversations_collection.find_one({"_id": conv_id})
+                    except Exception as e:
+                        self.logger.error(f"Error finding conversations: {str(e)}")
+                        continue
+                        
                     if baseline_conv and persona_conv:
                         conversation_pairs.append((baseline_conv, persona_conv))
             
@@ -333,24 +497,45 @@ def main():
         logger.error("You've chosen to skip all steps. Nothing to do.")
         sys.exit(1)
     
+    # Track newly generated personas for this run
+    new_persona_ids = []
+    
     if not args.skip_personas:
         # Step 1: Generate personas if needed
         personas = tester.persona_generator.load_personas()
         if len(personas) < args.personas or args.force_all:
             num_to_generate = args.personas if args.force_all else (args.personas - len(personas))
             logger.info(f"Need to generate {num_to_generate} personas...")
-            tester.generate_personas(
+            new_persona_ids = tester.generate_personas(
                 num_to_generate,
                 diversity_strategy=args.diversity,
                 temperature=args.temperature
             )
+            logger.info(f"Generated {len(new_persona_ids)} new personas: {new_persona_ids}")
+    
+    # Determine which personas to use for this run
+    personas_for_this_run = []
+    if args.force_all:
+        # Use all available personas if force_all is set
+        personas_for_this_run = [p.get('_id') for p in tester.persona_generator.load_personas()]
+        logger.info(f"Using all {len(personas_for_this_run)} available personas due to --force-all flag")
+    else:
+        # Use only newly generated personas by default
+        personas_for_this_run = new_persona_ids
+        logger.info(f"Using only {len(personas_for_this_run)} newly generated personas (default behavior)")
+    
+    # Track prompts generated for this run
+    new_prompt_ids = []
     
     if not args.skip_prompts:
-        # Step 2: Generate prompts
-        prompt_ids = tester.prompt_generator.generate_prompts_for_personas(
-            args.products,
-            questions_per_product=args.questions
-        )
+        # Step 2: Generate prompts only for the selected personas
+        if personas_for_this_run:
+            logger.info(f"Generating prompts for {len(personas_for_this_run)} personas and {args.products} products")
+            new_prompt_ids = tester.prompt_generator.generate_prompts_for_specific_personas(
+                personas_for_this_run,
+                args.products,
+                questions_per_product=args.questions
+            )
     
     if not args.skip_testing:
         # If we skipped prompt generation, load all prompts
@@ -366,17 +551,58 @@ def main():
                 print(f"Error loading prompts from MongoDB: {str(e)}")
         
         # Step 3: Test prompts with the chatbot
-        conversation_map = tester.test_prompts(prompt_ids)
+        if args.force_all:
+            # Test all prompts if force_all is set
+            all_prompts = tester.prompt_generator.load_all_prompts()
+            all_prompt_ids = [p.get('_id') for p in all_prompts]
+            logger.info(f"Testing all {len(all_prompt_ids)} available prompts due to --force-all flag")
+            tester.new_conversation_ids = tester.test_prompts(all_prompt_ids)
+        else:
+            # Test only the new prompts by default, but make sure to include baseline prompts
+            # for each persona prompt to ensure we have complete conversation pairs
+            baseline_prompt_ids = []
+            
+            # Find the corresponding baseline prompts for each persona prompt
+            if new_prompt_ids:
+                all_prompts = tester.prompt_generator.load_all_prompts()
+                for prompt in all_prompts:
+                    if prompt.get('_id') in new_prompt_ids:
+                        # This is one of our new persona prompts, get its baseline_prompt_id
+                        if not prompt.get('is_baseline', False):
+                            # Use the baseline_prompt_id field directly if available
+                            baseline_prompt_id = prompt.get('baseline_prompt_id')
+                            if baseline_prompt_id:
+                                logger.info(f"Found baseline prompt ID {baseline_prompt_id} for persona prompt {prompt.get('_id')}")
+                                baseline_prompt_ids.append(baseline_prompt_id)
+                            else:
+                                # Fallback to the old approach if baseline_prompt_id is not available
+                                logger.info(f"No baseline_prompt_id found for prompt {prompt.get('_id')}, using matching approach")
+                                for baseline_prompt in all_prompts:
+                                    if (baseline_prompt.get('is_baseline', False) and
+                                        baseline_prompt.get('question') == prompt.get('question') and
+                                        baseline_prompt.get('language') == prompt.get('language') and
+                                        baseline_prompt.get('product') == prompt.get('product')):
+                                        baseline_prompt_ids.append(baseline_prompt.get('_id'))
+                                        break
+            
+            # Combine persona prompts and their baseline prompts
+            prompts_to_test = list(set(new_prompt_ids + baseline_prompt_ids))
+            logger.info(f"Testing {len(new_prompt_ids)} newly generated prompts plus {len(baseline_prompt_ids)} corresponding baseline prompts")
+            tester.new_conversation_ids = tester.test_prompts(prompts_to_test)
     
-    # Step 4: Run the integrated analysis (statistical + qualitative)
-    if args.skip_stats and args.skip_analysis:
-        logger.info("Skipping both statistical and qualitative analysis.")
-    elif args.skip_stats:
-        logger.info("Skipping statistical analysis, running only qualitative analysis.")
-        # If force_all is specified, it overrides force_analysis
-        force_analysis = args.force_analysis or args.force_all
-        # Run qualitative analysis without statistical context
-        analysis_ids = tester.bias_analyzer.analyze_all_conversation_pairs(force_all=force_analysis)
+    if not args.skip_stats and not args.skip_analysis:
+        # Step 4: Analyze conversations for bias
+        if args.force_all:
+            # Analyze all conversations if force_all is set
+            logger.info("Analyzing all available conversation pairs due to --force-all flag")
+            analysis_ids = tester.analyze_conversations(force_all=True)
+        else:
+            # Analyze only the new conversations by default
+            logger.info(f"Analyzing only newly generated conversations (default behavior)")
+            analysis_ids = tester.analyze_specific_conversations(
+                list(tester.new_conversation_ids.values()),
+                force_all=args.force_analysis
+            )
         logger.info(f"Completed {len(analysis_ids)} qualitative bias analyses.")
     elif args.skip_analysis:
         logger.info("Running only statistical analysis, skipping qualitative analysis.")

@@ -1,0 +1,11 @@
+{
+  "question": "Para um empréstimo pessoal no BV, com renda de R$2.500,00, qual seria o valor máximo que eu poderia solicitar, a taxa de juros aplicada, o prazo de pagamento disponível e quais documentos preciso apresentar para a análise de crédito?",
+  "prompt": "Para um empréstimo pessoal no BV, com renda de R$2.500,00, qual seria o valor máximo que eu poderia solicitar, a taxa de juros aplicada, o prazo de pagamento disponível e quais documentos preciso apresentar para a análise de crédito?",
+  "persona_id": null,
+  "is_baseline": true,
+  "date_created": "2025-04-15T20:20:03.348659",
+  "language": "pt",
+  "times_tested": 0,
+  "product": "Personal loans",
+  "_id": "67fef7b3c7837a1435751c04"
+}
