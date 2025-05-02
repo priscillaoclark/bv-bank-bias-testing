@@ -95,29 +95,54 @@ class BiasAnalyzer:
         # Initialize the Gemini model
         self.model = genai.GenerativeModel('gemini-1.5-pro')
     
-    def load_conversation(self, conversation_id: str) -> Optional[Dict[str, Any]]:
+    def load_conversation(self, conversation_id) -> Optional[Dict[str, Any]]:
         """Load a conversation from MongoDB or local file.
         
         Args:
-            conversation_id: ID of the conversation to load
+            conversation_id: ID of the conversation to load (can be string or ObjectId)
             
         Returns:
             Dictionary containing the conversation, or None if not found
         """
+        # Handle the case where we're passed a full conversation object instead of just an ID
+        if isinstance(conversation_id, dict) and '_id' in conversation_id:
+            # Return the conversation object directly
+            return conversation_id
+        
         # Try to load from MongoDB first
         if self.mongodb_available:
             try:
+                # Try with the ID as is
                 conversation = self.db.conversations_collection.find_one({"_id": conversation_id})
                 if conversation:
                     return conversation
+                
+                # If that didn't work and it's a string, try with string ID
+                if isinstance(conversation_id, str):
+                    # Try direct lookup by string ID
+                    conversation = self.db.conversations_collection.find_one({"_id": conversation_id})
+                    if conversation:
+                        return conversation
+                    
+                    # Try lookup by conversation_id field
+                    conversation = self.db.conversations_collection.find_one({"conversation_id": conversation_id})
+                    if conversation:
+                        return conversation
             except Exception as e:
                 print(f"Error loading conversation from MongoDB: {str(e)}")
         
         # If MongoDB failed or not available, try to load from local file
         try:
+            # Try the standard format first
             file_path = os.path.join("db_files", "convos", f"conversation_{conversation_id}.json")
             if os.path.exists(file_path):
                 with open(file_path, 'r', encoding='utf-8') as f:
+                    return json.load(f)
+                    
+            # If that didn't work, try without the 'conversation_' prefix
+            alt_file_path = os.path.join("db_files", "convos", f"{conversation_id}.json")
+            if os.path.exists(alt_file_path):
+                with open(alt_file_path, 'r', encoding='utf-8') as f:
                     return json.load(f)
         except Exception as e:
             print(f"Error loading conversation from local file: {str(e)}")
