@@ -42,7 +42,7 @@ This will use default values for all parameters:
 The script supports several command-line arguments to customize the testing process:
 
 ```bash
-python run_bias_test.py [--personas NUM_PERSONAS] [--products NUM_PRODUCTS] [--questions NUM_QUESTIONS] [--diversity DIVERSITY_STRATEGY] [--force-all] [--temperature TEMPERATURE] [--skip-personas] [--skip-prompts] [--skip-testing] [--skip-stats] [--skip-analysis] [--force-analysis] [--log-level LOG_LEVEL] [--run-id RUN_ID]
+python run_bias_test.py [--personas NUM_PERSONAS] [--products NUM_PRODUCTS] [--questions NUM_QUESTIONS] [--diversity DIVERSITY_STRATEGY] [--test-existing | --test-new-only | --test-all] [--temperature TEMPERATURE] [--skip-personas] [--skip-prompts] [--skip-testing] [--skip-stats] [--skip-analysis] [--force-analysis] [--force-all] [--log-level LOG_LEVEL] [--run-id RUN_ID]
 ```
 
 ### Required Arguments
@@ -115,20 +115,72 @@ python generate_report.py
 
 ## Workflow Modes
 
-The script supports two main workflow modes:
+The script now supports three distinct workflow modes to make it easier to control which personas are tested:
 
-1. **Default Mode**: Process only newly generated data
-   - Generates new personas and tracks them with `new_persona_ids`
-   - Creates prompts only for those newly generated personas using `generate_prompts_for_specific_personas`
-   - Tests only those new prompts and tracks conversations with `new_conversation_ids`
-   - Analyzes only the new conversations with `analyze_specific_conversations`
+### 1. Test Existing Personas Only
 
-2. **Comprehensive Mode**: Process all available data
-   - Use the `--force-all` flag to process all data regardless of what's already been analyzed
-   - Generates all personas
-   - Creates prompts for all personas
-   - Tests all prompts
-   - Analyzes all conversations
+```bash
+python run_bias_test.py --products 1 --questions 1 --test-existing
+```
+
+This mode:
+- Skips persona generation entirely
+- Uses all existing personas from the database
+- Generates prompts for all existing personas
+- Tests all existing personas
+- Analyzes all resulting conversations
+
+Use this when you want to retest your existing personas without creating new ones.
+
+### 2. Test New Personas Only
+
+```bash
+python run_bias_test.py --products 1 --personas 1 --questions 1 --test-new-only
+```
+
+This mode:
+- Always creates the specified number of new personas
+- Only uses these newly generated personas for testing
+- Generates prompts only for the new personas
+- Tests only the new prompts
+- Analyzes only the new conversations
+
+Use this when you want to test only new personas without retesting existing ones.
+
+### 3. Default Mode (No Workflow Flag)
+
+```bash
+python run_bias_test.py --products 1 --personas 1 --questions 1
+```
+
+This mode:
+- Creates new personas only if needed to reach the specified number
+- Only uses newly generated personas for testing (if any)
+- If no new personas are needed, it will inform you and suggest using `--test-new-only` or `--test-existing`
+- Generates prompts only for the new personas
+- Tests only the new prompts
+- Analyzes only the new conversations
+
+Use this when you want to incrementally add personas to reach a specific total.
+
+### 4. Test All Personas (New and Existing)
+
+```bash
+python run_bias_test.py --products 1 --personas 1 --questions 1 --test-all
+```
+or:
+```bash
+python run_bias_test.py --products 1 --personas 1 --questions 1 --force-all
+```
+
+This mode:
+- Creates new personas if needed to reach the specified number
+- Uses all personas (both new and existing) for testing
+- Generates prompts for all personas
+- Tests all prompts
+- Analyzes all conversations
+
+Use this when you want to test both new and existing personas.
 
 ## Process Flow
 

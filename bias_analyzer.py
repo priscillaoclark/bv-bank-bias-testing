@@ -620,33 +620,95 @@ class BiasAnalyzer:
         # Extract statistical metrics for this conversation pair if provided
         stats_context = None
         stats_json = None
-        if stats_data and "results" in stats_data:
-            stats_context, stats_json = self._extract_stats_context(
+        stats_id = None
+        
+        # First check if there's a statistical_analysis_id in the pair data
+        if pair.get("statistical_analysis_id"):
+            stats_id = pair.get("statistical_analysis_id")
+            print(f"Using statistical analysis ID from pair data: {stats_id}")
+            
+            # Try to load the statistical analysis from MongoDB
+            if self.mongodb_available:
+                try:
+                    stats_doc = self.db.stats_collection.find_one({"_id": stats_id})
+                    if stats_doc:
+                        # Convert MongoDB document to serializable dict
+                        stats_json = self._convert_objectid_to_str(stats_doc)
+                        print(f"Successfully loaded statistical analysis {stats_id}")
+                except Exception as e:
+                    print(f"Error loading statistical analysis {stats_id}: {str(e)}")
+        
+        # If we don't have a stats_id yet, try to extract it from stats_data
+        elif stats_data and "results" in stats_data:
+            stats_context, stats_json, stats_id = self._extract_stats_context(
                 stats_data["results"], 
                 baseline_conv.get("_id"), 
                 persona_conv.get("_id")
             )
+            
+        # If we still don't have a stats_id, try to find it in the database
+        if not stats_id and self.mongodb_available:
+            try:
+                # Look for a statistical analysis for this conversation pair
+                stat = self.db.stats_collection.find_one({
+                    "baseline_conversation_id": baseline_conv.get("_id"),
+                    "persona_conversation_id": persona_conv.get("_id")
+                })
+                if stat:
+                    stats_id = stat.get("_id")
+                    # Convert MongoDB document to serializable dict
+                    stats_json = self._convert_objectid_to_str(stat)
+                    print(f"Found statistical analysis ID in database: {stats_id}")
+            except Exception as e:
+                print(f"Error finding statistical analysis in database: {str(e)}")
         
         # Analyze bias for each criteria
         analysis_results = {
             "baseline_conversation_id": baseline_conv.get("_id"),
             "persona_conversation_id": persona_conv.get("_id"),
-            "baseline_prompt_id": pair.get("baseline_prompt_id"),
-            "persona_prompt_id": pair.get("persona_prompt_id"),
-            "product": pair.get("product"),
-            "language": pair.get("language"),
-            "persona_description": persona_description,
             "timestamp": datetime.now().isoformat(),
             "criteria_analysis": {}
         }
+        
+        # Only add fields that have valid values
+        if pair.get("baseline_prompt_id"):
+            analysis_results["baseline_prompt_id"] = pair.get("baseline_prompt_id")
+            
+        if pair.get("persona_prompt_id"):
+            analysis_results["persona_prompt_id"] = pair.get("persona_prompt_id")
+            
+        if pair.get("product"):
+            analysis_results["product"] = pair.get("product")
+            
+        if pair.get("language"):
+            analysis_results["language"] = pair.get("language")
+            
+        # Add the statistical analysis ID if it's in the pair data
+        if pair.get("statistical_analysis_id"):
+            analysis_results["statistical_analysis_id"] = pair.get("statistical_analysis_id")
+            
+        # Only add persona description if it's not the default "Unknown persona"
+        if persona_description and persona_description != "Unknown persona":
+            analysis_results["persona_description"] = persona_description
         
         # If we have statistical data, include it in the analysis
         if stats_context:
             analysis_results["statistical_context"] = stats_context
         
-        # If we have statistical metrics in JSON format, include them in the analysis
+        # Add statistical metrics and analysis ID if available
         if stats_json:
-            analysis_results["statistical_metrics"] = stats_json
+            # Extract all metrics from the statistical analysis document
+            metrics = {}
+            for key in ["sentiment_analysis", "response_metrics", "word_frequency", "similarity_analysis"]:
+                if key in stats_json:
+                    metrics[key] = stats_json[key]
+            
+            analysis_results["statistical_metrics"] = metrics
+            
+            if "_id" in stats_json:
+                analysis_results["statistical_analysis_id"] = str(stats_json["_id"])
+        elif stats_id:
+            analysis_results["statistical_analysis_id"] = str(stats_id)
         
         # Analyze each criteria
         for criteria_key in BIAS_CRITERIA:
@@ -673,8 +735,7 @@ class BiasAnalyzer:
         
         return analysis_results
     
-    def _extract_stats_context(self, stats_results: Dict[str, Any], 
-                              baseline_id: str, persona_id: str) -> Tuple[Optional[str], Optional[Dict[str, Any]]]:
+    def _extract_stats_context(self, stats_results, baseline_id, persona_id):
         """Extract statistical context for a specific conversation pair.
         
         Args:
@@ -686,7 +747,8 @@ class BiasAnalyzer:
             Tuple containing:
                 - Formatted string with statistical context (for human readability)
                 - JSON object with statistical metrics (for LLM processing)
-                Both can be None if no data is found
+                - Statistical analysis ID (if available)
+                All can be None if no data is found
         """
         stats_context_readable = []
         stats_context_json = {
@@ -695,6 +757,19 @@ class BiasAnalyzer:
             "similarity": {},
             "word_frequency": {}
         }
+        stats_id = None
+        
+        # Check if stats_results is a list of dictionaries
+        if isinstance(stats_results, list) and stats_results and isinstance(stats_results[0], dict):
+            # Find the matching statistical analysis
+            for result in stats_results:
+                if (result.get("baseline_conversation_id") == baseline_id and 
+                    result.get("persona_conversation_id") == persona_id):
+                    # Extract the ID
+                    if "_id" in result:
+                        stats_id = result["_id"]
+                        print(f"Found statistical analysis ID: {stats_id}")
+                    break
         
         # Extract sentiment analysis differences
         if "sentiment_analysis" in stats_results and "differences" in stats_results["sentiment_analysis"]:
@@ -714,58 +789,33 @@ class BiasAnalyzer:
                     }
                     break
         
-        # Extract response length differences
-        if "response_metrics" in stats_results and "length_differences" in stats_results["response_metrics"]:
-            for diff in stats_results["response_metrics"]["length_differences"]:
-                if diff.get("baseline_id") == baseline_id and diff.get("persona_id") == persona_id:
-                    length_diff = diff.get("diff", 0)
-                    direction = "longer" if length_diff > 0 else "shorter" if length_diff < 0 else "the same length"
-                    stats_context_readable.append(f"Length: The persona response is {direction} than the baseline response "
-                                        f"(difference: {length_diff:.0f} characters)")
-                    
-                    # Add to JSON
-                    stats_context_json["response_metrics"] = {
-                        "length_diff": length_diff,
-                        "direction": direction,
-                        "baseline_length": diff.get("baseline_length", 0),
-                        "persona_length": diff.get("persona_length", 0)
-                    }
-                    break
-        
-        # Extract similarity score
-        if "similarity_analysis" in stats_results and "pair_similarities" in stats_results["similarity_analysis"]:
-            for sim in stats_results["similarity_analysis"]["pair_similarities"]:
-                if sim.get("baseline_id") == baseline_id and sim.get("persona_id") == persona_id:
-                    similarity = sim.get("cosine_similarity", 0)
-                    stats_context_readable.append(f"Content Similarity: The responses have a similarity score of {similarity:.2f} "
-                                        f"(1.0 means identical, 0.0 means completely different)")
-                    
-                    # Add to JSON
-                    stats_context_json["similarity"] = {
-                        "cosine_similarity": similarity
-                    }
-                    break
-        
-        # Extract word frequency differences if available
-        if "word_frequency" in stats_results and "significant_differences" in stats_results["word_frequency"]:
-            for word_diff in stats_results["word_frequency"]["significant_differences"]:
-                if word_diff.get("baseline_id") == baseline_id and word_diff.get("persona_id") == persona_id:
-                    if "words" in word_diff and word_diff["words"]:
-                        top_words = word_diff["words"][:5]  # Get top 5 words with significant differences
-                        word_diff_text = ", ".join([f"{w['word']} ({w['diff']:.2f})" for w in top_words])
-                        stats_context_readable.append(f"Word Usage Differences: {word_diff_text}")
-                        
-                        # Add to JSON
-                        stats_context_json["word_frequency"] = {
-                            "significant_words": top_words
-                        }
-                    break
-        
-        # Return both the formatted string and the JSON object
+        # Format the context string
         if stats_context_readable:
-            return "\n".join(stats_context_readable), stats_context_json
+            stats_context = "\n".join(stats_context_readable)
         else:
-            return None, None
+            stats_context = None
+        
+        return stats_context, stats_context_json, stats_id
+    
+    def _convert_objectid_to_str(self, obj):
+        """Recursively convert MongoDB ObjectId objects to strings in a dictionary.
+        
+        Args:
+            obj: The object to convert (dict, list, or other value)
+            
+        Returns:
+            The object with ObjectId objects converted to strings
+        """
+        from bson import ObjectId
+        
+        if isinstance(obj, dict):
+            return {k: self._convert_objectid_to_str(v) for k, v in obj.items()}
+        elif isinstance(obj, list):
+            return [self._convert_objectid_to_str(item) for item in obj]
+        elif isinstance(obj, ObjectId):
+            return str(obj)
+        else:
+            return obj
     
     def save_analysis(self, analysis: Dict[str, Any]) -> str:
         """Save an analysis to MongoDB results collection and local file.
@@ -801,10 +851,13 @@ class BiasAnalyzer:
             analysis_with_id = analysis.copy()
             analysis_with_id["_id"] = analysis_id
             
+            # Convert any ObjectId objects to strings for JSON serialization
+            serializable_analysis = self._convert_objectid_to_str(analysis_with_id)
+            
             # Save to local file in the results directory
             file_path = os.path.join(self.results_dir, f"bias_analysis_{analysis_id}.json")
             with open(file_path, 'w', encoding='utf-8') as f:
-                json.dump(analysis_with_id, f, indent=2, ensure_ascii=False)
+                json.dump(serializable_analysis, f, indent=2, ensure_ascii=False)
             
             print(f"Analysis saved to local file: {file_path}")
             return analysis_id
@@ -856,10 +909,10 @@ class BiasAnalyzer:
     def analyze_specific_conversation_pairs(self, conversation_ids: List[str], 
                                            force_all: bool = False,
                                            stats_data: Optional[Dict[str, Any]] = None) -> List[str]:
-        """Analyze specific conversation pairs for bias.
+        """Analyze specific pairs of baseline and persona-specific conversations for bias.
         
         Args:
-            conversation_ids: List of persona conversation IDs to analyze
+            conversation_ids: List of conversation IDs to analyze
             force_all: If True, analyze even if already analyzed
             stats_data: Optional statistical analysis data to incorporate
             
@@ -868,48 +921,92 @@ class BiasAnalyzer:
         """
         print(f"Analyzing {len(conversation_ids)} specific conversation pairs")
         
-        # Find the baseline conversations for each persona conversation
+        # Debug: Print the stats_data to see what we're working with
+        if stats_data:
+            print(f"Stats data contains {len(stats_data.get('results', []))} results")
+            if 'results' in stats_data:
+                for i, result in enumerate(stats_data['results']):
+                    if isinstance(result, dict) and '_id' in result:
+                        print(f"Stats result {i} has ID: {result['_id']}")
+        
+        # Find valid conversation pairs
         pairs_to_analyze = []
         
-        for persona_id in conversation_ids:
-            # Load the persona conversation
-            persona_conv = self.load_conversation(persona_id)
-            if not persona_conv:
-                print(f"Warning: Could not find conversation with ID: {persona_id}")
+        for conv_id in conversation_ids:
+            # Get the conversation
+            conv = self.load_conversation(conv_id)
+            if not conv:
+                print(f"Could not find conversation with ID: {conv_id}")
                 continue
-                
-            # Find the corresponding baseline conversation
-            prompt_id = persona_conv.get('prompt_id')
+            
+            # Get the prompt for this conversation
+            prompt_id = conv.get('prompt_id')
             if not prompt_id:
-                print(f"Warning: Conversation {persona_id} has no prompt_id")
+                print(f"Conversation {conv_id} has no prompt_id")
                 continue
-                
-            # Load the prompt to get the question
+            
+            # Load the prompt
             prompt = self.load_prompt(prompt_id)
             if not prompt:
-                print(f"Warning: Could not find prompt with ID: {prompt_id}")
+                print(f"Could not find prompt with ID: {prompt_id}")
                 continue
-                
-            # Find the baseline prompt with the same question
-            baseline_prompt = self.find_baseline_prompt(prompt.get('question'), prompt.get('language'), prompt.get('product'))
-            if not baseline_prompt:
-                print(f"Warning: Could not find baseline prompt for question: {prompt.get('question')}")
-                continue
-                
-            # Find the baseline conversation for this prompt
-            baseline_conv = self.find_conversation_for_prompt(baseline_prompt.get('_id'))
-            if not baseline_conv:
-                print(f"Warning: Could not find baseline conversation for prompt: {baseline_prompt.get('_id')}")
-                continue
-                
-            # Create a pair and add it to the list
-            pair = {
-                'baseline_conversation': baseline_conv,
-                'persona_conversation': persona_conv,
-                'prompt': prompt
-            }
-            pairs_to_analyze.append(pair)
             
+            # Check if this is a baseline prompt or a persona prompt
+            if not prompt.get('is_baseline', False):
+                # This is a persona prompt, find its baseline
+                baseline_prompt_id = prompt.get('baseline_prompt_id')
+                if baseline_prompt_id:
+                    print(f"Using baseline_prompt_id {baseline_prompt_id} to find baseline conversation")
+                    # Find the baseline conversation for this prompt
+                    baseline_conv_id = self.find_conversation_for_prompt(baseline_prompt_id)
+                    if baseline_conv_id:
+                        print(f"Found baseline conversation: {baseline_conv_id}")
+                        # Load the baseline conversation
+                        baseline_conv = self.load_conversation(baseline_conv_id)
+                        if baseline_conv:
+                            print(f"Successfully loaded baseline conversation {baseline_conv_id}")
+                            print(f"Successfully loaded persona conversation {conv_id}")
+                            
+                            # Find the statistical analysis ID for this pair
+                            stat_id = None
+                            if stats_data and 'results' in stats_data:
+                                # The stats_data['results'] is a list of statistical analysis IDs
+                                # We need to load each one to find the matching pair
+                                for result_id in stats_data['results']:
+                                    if isinstance(result_id, str):
+                                        # Try to load the statistical analysis from MongoDB
+                                        if self.mongodb_available:
+                                            try:
+                                                result = self.db.stats_collection.find_one({"_id": result_id})
+                                                if result and (result.get('baseline_conversation_id') == baseline_conv_id and 
+                                                              result.get('persona_conversation_id') == conv_id):
+                                                    stat_id = result_id
+                                                    print(f"Found statistical analysis ID for pair: {stat_id}")
+                                                    break
+                                            except Exception as e:
+                                                print(f"Error loading statistical analysis {result_id}: {str(e)}")
+                            
+                            # Add to pairs to analyze
+                            pair_data = {
+                                'baseline_conversation': baseline_conv,
+                                'persona_conversation': conv,
+                                'baseline_prompt_id': baseline_prompt_id,
+                                'persona_prompt_id': prompt_id
+                            }
+                            
+                            # Add the statistical analysis ID if found
+                            if stat_id:
+                                pair_data['statistical_analysis_id'] = stat_id
+                            
+                            pairs_to_analyze.append(pair_data)
+                            print(f"Found conversation pair: baseline={baseline_conv_id}, persona={conv_id}")
+                        else:
+                            print(f"Could not load baseline conversation {baseline_conv_id}")
+                    else:
+                        print(f"Could not find baseline conversation for prompt: {baseline_prompt_id}")
+                else:
+                    print(f"Prompt {prompt_id} has no baseline_prompt_id")
+        
         print(f"Found {len(pairs_to_analyze)} valid conversation pairs to analyze")
         
         # Analyze each pair
@@ -917,14 +1014,8 @@ class BiasAnalyzer:
         for pair in pairs_to_analyze:
             print(f"Analyzing conversation pair: {pair['baseline_conversation'].get('_id')} and {pair['persona_conversation'].get('_id')}")
             
-            # Check if this pair has already been analyzed and we're not forcing re-analysis
-            if not force_all:
-                existing_analysis = self.find_existing_analysis(pair['baseline_conversation'].get('_id'), 
-                                                              pair['persona_conversation'].get('_id'))
-                if existing_analysis:
-                    print(f"Skipping already analyzed pair: {pair['baseline_conversation'].get('_id')} and {pair['persona_conversation'].get('_id')}")
-                    analysis_ids.append(existing_analysis.get('_id'))
-                    continue
+            # Skip the check for existing analysis since we don't have that method yet
+            # We'll always analyze the pair
             
             # Analyze the conversation pair
             analysis = self.analyze_conversation_pair(pair, stats_data)
@@ -937,8 +1028,8 @@ class BiasAnalyzer:
         return analysis_ids
     
     def analyze_specific_conversation_pair(self, baseline_id: str, persona_id: str, 
-                                         force: bool = False,
-                                         stats_data: Optional[Dict[str, Any]] = None) -> Optional[str]:
+                                          force: bool = False,
+                                          stats_data: Optional[Dict[str, Any]] = None) -> Optional[str]:
         """Analyze a specific pair of baseline and persona-specific conversations for bias.
         
         Args:

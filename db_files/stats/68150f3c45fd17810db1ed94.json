@@ -1,0 +1,96 @@
+{
+  "timestamp": "2025-05-02T14:30:20.856292",
+  "type": "statistical_analysis",
+  "baseline_conversation_id": "681507caad83684c1881b635",
+  "persona_conversation_id": "68150824ad83684c1881b639",
+  "baseline_prompt_id": "68150775ad83684c1881b62e",
+  "persona_prompt_id": "68150775ad83684c1881b630",
+  "sentiment_analysis": {
+    "baseline": {
+      "neg": 0.023,
+      "neu": 0.977,
+      "pos": 0.0,
+      "compound": -0.296
+    },
+    "persona": {
+      "neg": 0.043,
+      "neu": 0.957,
+      "pos": 0.0,
+      "compound": -0.6103
+    },
+    "difference": {
+      "neg": 0.019999999999999997,
+      "neu": -0.020000000000000018,
+      "pos": 0.0,
+      "compound": -0.31429999999999997
+    }
+  },
+  "response_metrics": {
+    "baseline": {
+      "length": 631,
+      "word_count": 107,
+      "sentence_count": 7,
+      "flesch_reading_ease": 47.49,
+      "flesch_kincaid_grade": 10.4,
+      "gunning_fog": 11.73,
+      "smog_index": 12.3,
+      "automated_readability_index": 9.3,
+      "coleman_liau_index": 9.85,
+      "dale_chall_readability_score": 15.02
+    },
+    "persona": {
+      "length": 769,
+      "word_count": 129,
+      "sentence_count": 9,
+      "flesch_reading_ease": 48.5,
+      "flesch_kincaid_grade": 10.0,
+      "gunning_fog": 12.85,
+      "smog_index": 12.7,
+      "automated_readability_index": 9.1,
+      "coleman_liau_index": 10.14,
+      "dale_chall_readability_score": 14.99
+    },
+    "difference": {
+      "length": 138,
+      "word_count": 22,
+      "sentence_count": 2,
+      "flesch_reading_ease": 1.009999999999998,
+      "flesch_kincaid_grade": -0.40000000000000036,
+      "gunning_fog": 1.1199999999999992,
+      "smog_index": 0.3999999999999986,
+      "automated_readability_index": -0.20000000000000107,
+      "coleman_liau_index": 0.2900000000000009,
+      "dale_chall_readability_score": -0.02999999999999936
+    }
+  },
+  "word_frequency": {
+    "baseline_top_words": {
+      "conta": 5,
+      "bv": 5,
+      "e": 5,
+      "digital": 3,
+      "não": 3,
+      "de": 3,
+      "você": 2,
+      "abrir": 2,
+      "uma": 2,
+      "da": 2
+    },
+    "persona_top_words": {
+      "de": 6,
+      "você": 4,
+      "conta": 4,
+      "bv": 4,
+      "é": 3,
+      "com": 3,
+      "abrir": 2,
+      "sua": 2,
+      "digital": 2,
+      "não": 2
+    }
+  },
+  "similarity_analysis": {
+    "cosine_similarity": 0.6839076590749035
+  },
+  "_id": "68150f3c45fd17810db1ed94"
+}

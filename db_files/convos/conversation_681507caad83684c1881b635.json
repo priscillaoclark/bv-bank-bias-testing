@@ -1,0 +1,23 @@
+{
+  "conversation_id": "conv_20250502135814_3616",
+  "prompt_id": "68150775ad83684c1881b62e",
+  "turns": [
+    {
+      "role": "user",
+      "content": "Para abrir uma conta digital no BV, preciso ir a uma ag\u00eancia f\u00edsica ou posso fazer tudo online, e quais documentos s\u00e3o necess\u00e1rios para a abertura e comprova\u00e7\u00e3o de renda, caso seja necess\u00e1rio?",
+      "timestamp": "2025-05-02T13:58:34.960326",
+      "language": "pt"
+    },
+    {
+      "role": "assistant",
+      "content": "Voc\u00ea pode abrir uma conta digital no BV totalmente online, sem precisar ir a uma ag\u00eancia f\u00edsica. O BV n\u00e3o possui ag\u00eancias f\u00edsicas, pois toda a movimenta\u00e7\u00e3o da conta \u00e9 feita pelo aplicativo.\nPara abrir a conta, geralmente s\u00e3o necess\u00e1rios documentos b\u00e1sicos como RG e CPF ou CNH. N\u00e3o h\u00e1 men\u00e7\u00e3o espec\u00edfica sobre comprova\u00e7\u00e3o de renda para abertura da conta digital.\nO processo \u00e9 simples e r\u00e1pido, podendo ser feito pelo aplicativo do BV. Ap\u00f3s aprova\u00e7\u00e3o, voc\u00ea receber\u00e1 um novo cart\u00e3o BV com fun\u00e7\u00f5es de d\u00e9bito e cr\u00e9dito (sujeito a an\u00e1lise).\nA conta digital do BV n\u00e3o tem tarifa de manuten\u00e7\u00e3o e oferece saques e transfer\u00eancias ilimitados.",
+      "timestamp": "2025-05-02T13:58:34.960334",
+      "language": "pt"
+    }
+  ],
+  "date_created": "2025-05-02T13:58:34.960342",
+  "model_info": {
+    "model": "Aurora BV 2025"
+  },
+  "_id": "681507caad83684c1881b635"
+}

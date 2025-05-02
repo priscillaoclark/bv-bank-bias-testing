@@ -227,6 +227,15 @@ class BiasTester:
         self.logger.info(f"Running statistical analysis on {len(conversation_ids)} specific conversations")
         stats_data = self.run_statistical_analysis_for_specific_conversations(conversation_ids)
         
+        # Debug: Print the stats_data structure
+        if stats_data:
+            self.logger.info(f"Stats data contains {len(stats_data.get('results', []))} results")
+            if 'results' in stats_data:
+                for i, result in enumerate(stats_data['results']):
+                    self.logger.info(f"Stats result {i} type: {type(result)}")
+                    if isinstance(result, str):
+                        self.logger.info(f"Stats result {i} is a string: {result}")
+        
         # Step 2: Run qualitative analysis with statistical context
         self.logger.info(f"Analyzing {len(conversation_ids)} specific conversations for bias with statistical context")
         if force_all:
@@ -364,7 +373,7 @@ class BiasTester:
         """Run statistical analysis on specific conversation pairs.
         
         Args:
-            conversation_ids: List of persona conversation IDs to analyze
+            conversation_ids: List of conversation IDs to analyze
             
         Returns:
             Dictionary containing statistical analysis results
@@ -373,24 +382,126 @@ class BiasTester:
             # Find conversation pairs for the specified conversations
             self.logger.info(f"Finding conversation pairs for {len(conversation_ids)} specific conversations...")
             conversation_pairs = []
+            processed_ids = set()  # Keep track of which IDs we've already processed
+            
+            # First, identify which conversations are from persona prompts vs. baseline prompts
+            persona_conversations = []
+            baseline_conversations = []
             
             for conv_id in conversation_ids:
-                # Find the baseline conversation for this persona conversation
-                baseline_id = self.find_baseline_for_conversation(conv_id)
-                if baseline_id:
+                # Load the conversation
+                conv = None
+                if hasattr(self.bias_analyzer, 'load_conversation'):
+                    conv = self.bias_analyzer.load_conversation(conv_id)
+                
+                if not conv:
+                    self.logger.warning(f"Could not find conversation with ID: {conv_id}")
+                    continue
+                
+                # Get the prompt ID for this conversation
+                prompt_id = conv.get('prompt_id')
+                if not prompt_id:
+                    self.logger.warning(f"Conversation {conv_id} has no prompt_id")
+                    continue
+                
+                # Load the prompt
+                prompt = None
+                if hasattr(self.bias_analyzer, 'load_prompt'):
+                    prompt = self.bias_analyzer.load_prompt(prompt_id)
+                
+                if not prompt:
+                    self.logger.warning(f"Could not find prompt with ID: {prompt_id}")
+                    continue
+                
+                # Check if this is a baseline prompt or a persona prompt
+                if prompt.get('is_baseline', False):
+                    baseline_conversations.append((conv_id, prompt_id))
+                    self.logger.info(f"Identified conversation {conv_id} as a baseline conversation")
+                else:
+                    persona_conversations.append((conv_id, prompt_id, prompt.get('baseline_prompt_id')))
+                    self.logger.info(f"Identified conversation {conv_id} as a persona conversation")
+            
+            # Now process the persona conversations to find their baseline pairs
+            for persona_conv_id, persona_prompt_id, baseline_prompt_id in persona_conversations:
+                if persona_conv_id in processed_ids:
+                    continue  # Skip if we've already processed this ID
+                
+                # First try to find the baseline conversation using the baseline_prompt_id
+                baseline_conv_id = None
+                if baseline_prompt_id:
+                    self.logger.info(f"Using baseline_prompt_id {baseline_prompt_id} to find baseline conversation")
+                    # Look through our baseline_conversations list for a match
+                    for b_conv_id, b_prompt_id in baseline_conversations:
+                        if b_prompt_id == baseline_prompt_id:
+                            baseline_conv_id = b_conv_id
+                            self.logger.info(f"Found baseline conversation: {baseline_conv_id}")
+                            break
+                    
+                    # If we didn't find it in our list, try the find_conversation_for_prompt method
+                    if not baseline_conv_id and hasattr(self.bias_analyzer, 'find_conversation_for_prompt'):
+                        baseline_conv = self.bias_analyzer.find_conversation_for_prompt(baseline_prompt_id)
+                        if baseline_conv:
+                            baseline_conv_id = baseline_conv.get('_id')
+                            self.logger.info(f"Found baseline conversation via API: {baseline_conv_id}")
+                
+                # If we couldn't find it that way, try using find_baseline_for_conversation
+                if not baseline_conv_id:
+                    self.logger.info(f"Falling back to find_baseline_for_conversation for {persona_conv_id}")
+                    baseline_conv_id = self.find_baseline_for_conversation(persona_conv_id)
+                
+                if baseline_conv_id:
                     # Get the conversations
                     baseline_conv = None
                     persona_conv = None
                     try:
-                        if hasattr(self.bias_analyzer.db, 'conversations_collection'):
-                            baseline_conv = self.bias_analyzer.db.conversations_collection.find_one({"_id": baseline_id})
-                            persona_conv = self.bias_analyzer.db.conversations_collection.find_one({"_id": conv_id})
+                        # Load conversations directly using the bias_analyzer's load_conversation method
+                        baseline_conv = self.bias_analyzer.load_conversation(baseline_conv_id)
+                        persona_conv = self.bias_analyzer.load_conversation(persona_conv_id)
+                        
+                        if baseline_conv:
+                            self.logger.info(f"Successfully loaded baseline conversation {baseline_conv_id}")
+                        else:
+                            self.logger.warning(f"Failed to load baseline conversation {baseline_conv_id}")
+                            
+                        if persona_conv:
+                            self.logger.info(f"Successfully loaded persona conversation {persona_conv_id}")
+                        else:
+                            self.logger.warning(f"Failed to load persona conversation {persona_conv_id}")
                     except Exception as e:
                         self.logger.error(f"Error finding conversations: {str(e)}")
                         continue
-                        
+                    
                     if baseline_conv and persona_conv:
                         conversation_pairs.append((baseline_conv, persona_conv))
+                        processed_ids.add(persona_conv_id)
+                        processed_ids.add(baseline_conv_id)
+                        self.logger.info(f"Found conversation pair: baseline={baseline_conv_id}, persona={persona_conv_id}")
+            
+            # Also look for pairs among the baseline conversations we identified
+            for baseline_conv_id, baseline_prompt_id in baseline_conversations:
+                # Skip if we've already processed this ID as part of a pair
+                if baseline_conv_id in processed_ids:
+                    continue
+                
+                # Look for persona conversations that use this baseline
+                for persona_conv_id, persona_prompt_id, persona_baseline_id in persona_conversations:
+                    if persona_baseline_id == baseline_prompt_id and persona_conv_id not in processed_ids:
+                        # Get the conversations
+                        baseline_conv = None
+                        persona_conv = None
+                        try:
+                            if hasattr(self.bias_analyzer.db, 'conversations_collection'):
+                                baseline_conv = self.bias_analyzer.db.conversations_collection.find_one({"_id": baseline_conv_id})
+                                persona_conv = self.bias_analyzer.db.conversations_collection.find_one({"_id": persona_conv_id})
+                        except Exception as e:
+                            self.logger.error(f"Error finding conversations: {str(e)}")
+                            continue
+                        
+                        if baseline_conv and persona_conv:
+                            conversation_pairs.append((baseline_conv, persona_conv))
+                            processed_ids.add(persona_conv_id)
+                            processed_ids.add(baseline_conv_id)
+                            self.logger.info(f"Found conversation pair from baseline matching: baseline={baseline_conv_id}, persona={persona_conv_id}")
             
             if not conversation_pairs:
                 self.logger.warning("No conversation pairs found for statistical analysis.")
@@ -459,6 +570,8 @@ class BiasTester:
 def main():
     """Main function to run the bias tester."""
     parser = argparse.ArgumentParser(description="Run bias testing for Aurora chatbot")
+    
+    # Basic configuration
     parser.add_argument("--personas", "-p", type=int, default=2, help="Number of personas to generate")
     parser.add_argument("--products", "-pr", type=int, default=3, help="Number of products to test")
     parser.add_argument("--questions", "-q", type=int, default=2, help="Number of questions per product")
@@ -467,13 +580,26 @@ def main():
                         help="Diversity strategy for persona generation")
     parser.add_argument("--temperature", "-t", type=float, 
                         help="Specific temperature to use for persona generation (0.0 to 1.0)")
+    
+    # Workflow mode (mutually exclusive options)
+    workflow_group = parser.add_mutually_exclusive_group()
+    workflow_group.add_argument("--test-existing", action="store_true", 
+                               help="Test only existing personas without creating new ones")
+    workflow_group.add_argument("--test-new-only", action="store_true", 
+                               help="Create new personas and test only those (always creates new personas)")
+    workflow_group.add_argument("--test-all", action="store_true", 
+                               help="Create new personas and test all personas (both new and existing)")
+    
+    # Skip options
     parser.add_argument("--skip-personas", action="store_true", help="Skip persona generation")
     parser.add_argument("--skip-prompts", action="store_true", help="Skip prompt generation")
     parser.add_argument("--skip-testing", action="store_true", help="Skip chatbot testing")
     parser.add_argument("--skip-stats", action="store_true", help="Skip statistical analysis")
     parser.add_argument("--skip-analysis", action="store_true", help="Skip qualitative bias analysis")
+    
+    # Other options
     parser.add_argument("--force-analysis", action="store_true", help="Force re-analysis of already analyzed conversations")
-    parser.add_argument("--force-all", action="store_true", help="Force all steps to run, even if results already exist")
+    parser.add_argument("--force-all", action="store_true", help="Force all steps to run, even if results already exist (equivalent to --test-all)")
     parser.add_argument("--log-level", type=str, default="INFO", 
                         choices=["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"],
                         help="Logging level")
@@ -500,29 +626,53 @@ def main():
     # Track newly generated personas for this run
     new_persona_ids = []
     
+    # Step 1: Generate personas based on workflow mode
+    personas = tester.persona_generator.load_personas()
+    
     if not args.skip_personas:
-        # Step 1: Generate personas if needed
-        personas = tester.persona_generator.load_personas()
-        if len(personas) < args.personas or args.force_all:
-            num_to_generate = args.personas if args.force_all else (args.personas - len(personas))
-            logger.info(f"Need to generate {num_to_generate} personas...")
+        if args.test_existing:
+            # Don't generate any new personas
+            logger.info("Using existing personas only (--test-existing mode)")
+            new_persona_ids = []
+        elif args.test_new_only or args.force_all:
+            # Always generate the requested number of personas
+            logger.info(f"Generating {args.personas} new personas...")
             new_persona_ids = tester.generate_personas(
-                num_to_generate,
+                args.personas,
                 diversity_strategy=args.diversity,
                 temperature=args.temperature
             )
             logger.info(f"Generated {len(new_persona_ids)} new personas: {new_persona_ids}")
+        else:
+            # Generate personas only if needed (default behavior without specific mode)
+            if len(personas) < args.personas:
+                num_to_generate = args.personas - len(personas)
+                logger.info(f"Need to generate {num_to_generate} personas...")
+                new_persona_ids = tester.generate_personas(
+                    num_to_generate,
+                    diversity_strategy=args.diversity,
+                    temperature=args.temperature
+                )
+                logger.info(f"Generated {len(new_persona_ids)} new personas: {new_persona_ids}")
+            else:
+                logger.info(f"Already have {len(personas)} personas, which meets the requested {args.personas}. No new personas generated.")
+                logger.info(f"Use --test-new-only to force generating new personas, or --test-existing to test existing ones.")
     
     # Determine which personas to use for this run
     personas_for_this_run = []
-    if args.force_all:
-        # Use all available personas if force_all is set
+    if args.test_all or args.force_all:
+        # Use all available personas
         personas_for_this_run = [p.get('_id') for p in tester.persona_generator.load_personas()]
-        logger.info(f"Using all {len(personas_for_this_run)} available personas due to --force-all flag")
+        logger.info(f"Using all {len(personas_for_this_run)} available personas (--test-all mode)")
+    elif args.test_existing:
+        # Use all existing personas (but not any new ones)
+        existing_persona_ids = [p.get('_id') for p in personas]
+        personas_for_this_run = existing_persona_ids
+        logger.info(f"Using {len(personas_for_this_run)} existing personas (--test-existing mode)")
     else:
-        # Use only newly generated personas by default
+        # Default: use only newly generated personas
         personas_for_this_run = new_persona_ids
-        logger.info(f"Using only {len(personas_for_this_run)} newly generated personas (default behavior)")
+        logger.info(f"Using only {len(personas_for_this_run)} newly generated personas (--test-new-only mode)")
     
     # Track prompts generated for this run
     new_prompt_ids = []

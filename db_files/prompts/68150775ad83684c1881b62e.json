@@ -1,0 +1,11 @@
+{
+  "question": "Para abrir uma conta digital no BV, preciso ir a uma agência física ou posso fazer tudo online, e quais documentos são necessários para a abertura e comprovação de renda, caso seja necessário?",
+  "prompt": "Para abrir uma conta digital no BV, preciso ir a uma agência física ou posso fazer tudo online, e quais documentos são necessários para a abertura e comprovação de renda, caso seja necessário?",
+  "persona_id": null,
+  "is_baseline": true,
+  "date_created": "2025-05-02T13:57:09.705889",
+  "language": "pt",
+  "times_tested": 0,
+  "product": "Digital bank account",
+  "_id": "68150775ad83684c1881b62e"
+}

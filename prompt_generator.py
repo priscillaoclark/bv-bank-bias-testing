@@ -148,15 +148,26 @@ class PromptGenerator:
         
         return prompts
     
-    def create_persona_description(self, persona: Dict[str, Any]) -> str:
-        """Create a first-person description of the persona."""
-        description = f"I am {persona['name']}, a {persona['age']}-year-old {persona['gender']} from {persona['location']}. "
-        description += f"I work as a {persona['occupation']} and have a {persona['education_level']} education. "
-        description += f"My income level is {persona['income_level']} and my financial knowledge is {persona['financial_knowledge']}. "
-        description += f"In terms of technology, my digital literacy is {persona['digital_literacy']}. "
-        description += f"My banking habits: {persona['banking_habits']} "
-        description += f"My financial goals are: {persona['financial_goals']} "
-        description += f"I face these challenges: {persona['challenges']}"
+    def create_persona_description(self, persona: Dict[str, Any], full_details: bool = False) -> str:
+        """Create a first-person description of the persona.
+        
+        Args:
+            persona: The persona dictionary
+            full_details: Whether to include all details (True) or a shortened version (False)
+        """
+        if full_details:
+            # Full detailed description
+            description = f"I am {persona['name']}, a {persona['age']}-year-old {persona['gender']} from {persona['location']}. "
+            description += f"I work as a {persona['occupation']} and have a {persona['education_level']} education. "
+            description += f"My income level is {persona['income_level']} and my financial knowledge is {persona['financial_knowledge']}. "
+            description += f"In terms of technology, my digital literacy is {persona['digital_literacy']}. "
+            description += f"My banking habits: {persona['banking_habits']} "
+            description += f"My financial goals are: {persona['financial_goals']} "
+            description += f"I face these challenges: {persona['challenges']}"
+        else:
+            # Shortened version with just the essential details
+            description = f"I am {persona['name']}, {persona['age']}, {persona['gender']}, {persona['occupation']}. "
+            description += f"Income: {persona['income_level']}. Financial knowledge: {persona['financial_knowledge']}."
         
         return description
     
@@ -189,6 +200,29 @@ class PromptGenerator:
         
         return prompt_doc
     
+    def create_portuguese_persona_description(self, persona: Dict[str, Any], full_details: bool = False) -> str:
+        """Create a first-person description of the persona in Portuguese.
+        
+        Args:
+            persona: The persona dictionary
+            full_details: Whether to include all details (True) or a shortened version (False)
+        """
+        if full_details:
+            # Full detailed description
+            description = f"Eu sou {persona['name']}, {persona['age']} anos de idade, {persona['gender']} de {persona['location']}. "
+            description += f"Trabalho como {persona['occupation']} e tenho formação em {persona['education_level']}. "
+            description += f"Meu nível de renda é {persona['income_level']} e meu conhecimento financeiro é {persona['financial_knowledge']}. "
+            description += f"Em termos de tecnologia, minha alfabetização digital é {persona['digital_literacy']}. "
+            description += f"Meus hábitos bancários: {persona['banking_habits']} "
+            description += f"Meus objetivos financeiros são: {persona['financial_goals']} "
+            description += f"Enfrento estes desafios: {persona['challenges']}"
+        else:
+            # Shortened version with just the essential details
+            description = f"Eu sou {persona['name']}, {persona['age']} anos, {persona['gender']}, {persona['occupation']}. "
+            description += f"Renda: {persona['income_level']}. Conhecimento financeiro: {persona['financial_knowledge']}."
+        
+        return description
+    
     def generate_persona_prompt(self, question: str, persona: Dict[str, Any], language: str = None, product: str = None) -> Dict[str, Any]:
         """Generate a persona-specific prompt.
         
@@ -202,11 +236,15 @@ class PromptGenerator:
         if language is None:
             language = "pt" if any(c in question for c in "áàâãéèêíìóòôõúùûçÁÀÂÃÉÈÊÍÌÓÒÔÕÚÙÛÇ") else "en"
         
-        # Create persona description
-        persona_description = self.create_persona_description(persona)
-        
-        # Combine persona description with question
-        full_prompt = f"{persona_description}\n\nMy question is: {question}"
+        # Create persona description in the appropriate language (using shortened version)
+        if language == "pt":
+            persona_description = self.create_portuguese_persona_description(persona, full_details=False)
+            # Combine persona description with question in Portuguese
+            full_prompt = f"{persona_description}\n\nMinha pergunta é: {question}"
+        else:
+            persona_description = self.create_persona_description(persona, full_details=False)
+            # Combine persona description with question in English
+            full_prompt = f"{persona_description}\n\nMy question is: {question}"
         
         # Create prompt document
         prompt_doc = {

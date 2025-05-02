@@ -1,0 +1,12 @@
+{
+  "question": "I'm interested in opening a digital bank account with BV Bank, but I'm curious about the initial deposit requirements, any monthly fees associated with the account, and if there are any limits on the number of transactions I can make each month.",
+  "prompt": "I am Maria Aparecida Silva, 62, Female, Retired seamstress. Income: Low income (relies primarily on government assistance). Financial knowledge: Limited - Understands basic concepts but struggles with financial planning and is easily swayed by misleading offers..\n\nMy question is: I'm interested in opening a digital bank account with BV Bank, but I'm curious about the initial deposit requirements, any monthly fees associated with the account, and if there are any limits on the number of transactions I can make each month.",
+  "persona_id": "6f39eccf-fcf5-45a6-b535-ed8a11edeb67",
+  "is_baseline": false,
+  "date_created": "2025-05-02T13:57:09.895713",
+  "language": "en",
+  "times_tested": 0,
+  "product": "Digital bank account",
+  "baseline_prompt_id": "68150775ad83684c1881b62f",
+  "_id": "68150775ad83684c1881b631"
+}

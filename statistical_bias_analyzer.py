@@ -89,15 +89,14 @@ class StatisticalBiasAnalyzer:
         for i, (baseline_conversation, persona_conversation) in enumerate(conversation_pairs):
             print(f"Processing statistical analysis for conversation pair {i+1}/{len(conversation_pairs)}")
             
-            # Analyze this specific pair
+            # Create the analysis result
             pair_results = {
-                "baseline_conversation_id": baseline_conversation.get("_id", "unknown"),
-                "persona_conversation_id": persona_conversation.get("_id", "unknown"),
-                "baseline_prompt_id": baseline_conversation.get("prompt_id", "unknown"),
-                "persona_prompt_id": persona_conversation.get("prompt_id", "unknown"),
-                "product": self._extract_product(baseline_conversation, persona_conversation),
-                "language": self._extract_language(baseline_conversation, persona_conversation),
-                "persona_description": self._extract_persona_description(persona_conversation),
+                "timestamp": datetime.now().isoformat(),
+                "type": "statistical_analysis",
+                "baseline_conversation_id": baseline_conversation["_id"],
+                "persona_conversation_id": persona_conversation["_id"],
+                "baseline_prompt_id": baseline_conversation.get("prompt_id"),
+                "persona_prompt_id": persona_conversation.get("prompt_id"),
                 "sentiment_analysis": self._analyze_sentiment_for_pair(baseline_conversation, persona_conversation),
                 "response_metrics": self._analyze_metrics_for_pair(baseline_conversation, persona_conversation),
                 "word_frequency": self._analyze_word_frequency_for_pair(baseline_conversation, persona_conversation),

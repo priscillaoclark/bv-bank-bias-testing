@@ -1,0 +1,23 @@
+{
+  "conversation_id": "conv_20250502135850_5482",
+  "prompt_id": "68150775ad83684c1881b62f",
+  "turns": [
+    {
+      "role": "user",
+      "content": "I'm interested in opening a digital bank account with BV Bank, but I'm curious about the initial deposit requirements, any monthly fees associated with the account, and if there are any limits on the number of transactions I can make each month.",
+      "timestamp": "2025-05-02T13:59:16.014858",
+      "language": "en"
+    },
+    {
+      "role": "assistant",
+      "content": "Great question! Here's what you need to know about opening a digital account with BV Bank:\nInitial deposit: There's no minimum initial deposit required to open an account.\nMonthly fees: The account has no maintenance fees.\nTransaction limits: There are no limits on withdrawals or transfers.\nAdditionally, you'll receive a new BV Card with both debit and credit functions (subject to analysis). The card will be sent to your preferred address once you accept the contract available in the app.\nBV Bank is fully digital, so all account management is done through the app, where you'll find the main services for your daily banking needs. For cash withdrawals, you can use Banco24Horas ATMs throughout Brazil. Transfers, including Pix, are made through the app.\nLet me know if you have any other questions about BV Bank's digital account!",
+      "timestamp": "2025-05-02T13:59:16.014871",
+      "language": "en"
+    }
+  ],
+  "date_created": "2025-05-02T13:59:16.014890",
+  "model_info": {
+    "model": "Aurora BV 2025"
+  },
+  "_id": "681507f4ad83684c1881b637"
+}
