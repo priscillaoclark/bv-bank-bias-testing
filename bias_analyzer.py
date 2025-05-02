@@ -761,6 +761,10 @@ class BiasAnalyzer:
             "criteria_analysis": {}
         }
         
+        # Always include the statistical_analysis_id if we have it
+        if stats_id:
+            analysis_results["statistical_analysis_id"] = str(stats_id)
+        
         # Only add fields that have valid values
         if pair.get("baseline_prompt_id"):
             analysis_results["baseline_prompt_id"] = pair.get("baseline_prompt_id")

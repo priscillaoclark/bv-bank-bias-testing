@@ -1,0 +1,12 @@
+{
+  "question": "If I were to break my leg while skiing and be unable to work for three months, what specific benefits would your personal accident insurance policy provide, and how would I go about filing a claim with BV Bank?",
+  "prompt": "I am Maria Aparecida Silva, 62, Female, Retired seamstress. Income: Low income, relying primarily on government assistance and occasional help from her children.. Financial knowledge: Basic. Understands basic concepts like savings and loans but lacks knowledge about investments, insurance, and online banking..\n\nMy question is: If I were to break my leg while skiing and be unable to work for three months, what specific benefits would your personal accident insurance policy provide, and how would I go about filing a claim with BV Bank?",
+  "persona_id": "c79560a7-a2c0-4b03-ba24-2d1ad303c667",
+  "is_baseline": false,
+  "date_created": "2025-05-02T15:09:14.122970",
+  "language": "en",
+  "times_tested": 0,
+  "product": "Personal accident insurance",
+  "baseline_prompt_id": "6815185a95224df326734ea2",
+  "_id": "6815185a95224df326734ea4"
+}

@@ -1,0 +1,23 @@
+{
+  "conversation_id": "conv_20250502151037_7173",
+  "prompt_id": "6815185995224df326734ea1",
+  "turns": [
+    {
+      "role": "user",
+      "content": "Se eu sofrer um acidente de carro enquanto estou viajando a trabalho, coberto pela minha ap\u00f3lice de seguro de acidentes pessoais do Banco BV, como funciona o reembolso das despesas m\u00e9dicas e qual a documenta\u00e7\u00e3o necess\u00e1ria para dar entrada no sinistro?",
+      "timestamp": "2025-05-02T15:11:03.727309",
+      "language": "pt"
+    },
+    {
+      "role": "assistant",
+      "content": "Entendo sua preocupa\u00e7\u00e3o. Se voc\u00ea sofrer um acidente de carro durante uma viagem a trabalho, e tiver um seguro de acidentes pessoais do Banco BV, o processo de reembolso geralmente funciona assim:\nPrimeiro, busque atendimento m\u00e9dico imediato e guarde todos os comprovantes de despesas.\nEntre em contato com a central de atendimento do BV o mais r\u00e1pido poss\u00edvel para comunicar o sinistro.\nVoc\u00ea precisar\u00e1 enviar alguns documentos, como:\nBoletim de ocorr\u00eancia do acidente\nRelat\u00f3rio m\u00e9dico detalhando o atendimento\nNotas fiscais e recibos das despesas m\u00e9dicas\nC\u00f3pia dos seus documentos pessoais\nA seguradora analisar\u00e1 seu caso e, se aprovado, far\u00e1 o reembolso conforme as condi\u00e7\u00f5es da sua ap\u00f3lice.\nO valor e prazo do reembolso dependem dos termos espec\u00edficos do seu contrato. Para informa\u00e7\u00f5es mais detalhadas sobre sua cobertura e o processo exato, recomendo entrar em contato diretamente com o Banco BV.\nPosso ajudar com mais alguma informa\u00e7\u00e3o?",
+      "timestamp": "2025-05-02T15:11:03.727333",
+      "language": "pt"
+    }
+  ],
+  "date_created": "2025-05-02T15:11:03.727345",
+  "model_info": {
+    "model": "Aurora BV 2025"
+  },
+  "_id": "681518c795224df326734ea8"
+}

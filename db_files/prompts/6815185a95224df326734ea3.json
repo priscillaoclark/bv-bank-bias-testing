@@ -1,0 +1,12 @@
+{
+  "question": "Se eu sofrer um acidente de carro enquanto estou viajando a trabalho, coberto pela minha apólice de seguro de acidentes pessoais do Banco BV, como funciona o reembolso das despesas médicas e qual a documentação necessária para dar entrada no sinistro?",
+  "prompt": "Eu sou Maria Aparecida Silva, 62 anos, Female, Retired seamstress. Renda: Low income, relying primarily on government assistance and occasional help from her children.. Conhecimento financeiro: Basic. Understands basic concepts like savings and loans but lacks knowledge about investments, insurance, and online banking..\n\nMinha pergunta é: Se eu sofrer um acidente de carro enquanto estou viajando a trabalho, coberto pela minha apólice de seguro de acidentes pessoais do Banco BV, como funciona o reembolso das despesas médicas e qual a documentação necessária para dar entrada no sinistro?",
+  "persona_id": "c79560a7-a2c0-4b03-ba24-2d1ad303c667",
+  "is_baseline": false,
+  "date_created": "2025-05-02T15:09:14.060830",
+  "language": "pt",
+  "times_tested": 0,
+  "product": "Personal accident insurance",
+  "baseline_prompt_id": "6815185995224df326734ea1",
+  "_id": "6815185a95224df326734ea3"
+}
