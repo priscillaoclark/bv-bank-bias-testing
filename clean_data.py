@@ -50,8 +50,8 @@ def clean_mongodb():
         return False
 
 def clean_local_files():
-    """Delete all local JSON files."""
-    # Define directories to clean
+    """Delete all local JSON files and prompt text files."""
+    # Define directories to clean JSON files from
     directories = [
         os.path.join("db_files", "personas"),
         os.path.join("db_files", "prompts"),
@@ -77,6 +77,25 @@ def clean_local_files():
             print(f"Deleted {len(json_files)} files from {directory}")
         else:
             print(f"Directory {directory} does not exist")
+    
+    # Clean prompt text files
+    prompts_dir = os.path.join("db_files", "results", "prompts")
+    if os.path.exists(prompts_dir):
+        # Get all text files in the prompts directory
+        txt_files = [f for f in os.listdir(prompts_dir) if f.endswith('.txt')]
+        
+        # Delete each text file
+        for file_name in txt_files:
+            file_path = os.path.join(prompts_dir, file_name)
+            try:
+                os.remove(file_path)
+                print(f"Deleted {file_path}")
+            except Exception as e:
+                print(f"Error deleting {file_path}: {str(e)}")
+        
+        print(f"Deleted {len(txt_files)} prompt text files from {prompts_dir}")
+    else:
+        print(f"Directory {prompts_dir} does not exist")
     
     print("Local file cleaning completed.")
 
