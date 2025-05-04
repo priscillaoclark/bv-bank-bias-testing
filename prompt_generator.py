@@ -65,11 +65,20 @@ class PromptGenerator:
             "Digital bank account",
             "Credit cards",
             "Personal loans",
+            "Payroll loans",
             "Auto loans",
             "Vehicle financing",
-            "Auto insurance",
+            "Auto-secured loans",
+            "Solar energy financing",
+            "Business loans",
+            "Receivables financing",
+            "Leasing and asset financing",
+            "Insurance products",
             "Assistance services",
-            "Investment products"
+            "Investment products",
+            "High-yield savings",
+            "CDBs (bank deposits)",
+            "Private banking"
         ]
     
     def load_personas(self) -> List[Dict[str, Any]]:
