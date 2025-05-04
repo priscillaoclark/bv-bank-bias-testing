@@ -112,8 +112,8 @@ class PersonaGenerator:
         
         # Add existing personas to the prompt if provided
         if existing_personas and len(existing_personas) > 0:
-            # Select up to 3 random personas to include as examples to avoid
-            sample_size = min(3, len(existing_personas))
+            # Select up to 100 personas to include as examples to avoid
+            sample_size = min(100, len(existing_personas))
             sample_personas = random.sample(existing_personas, sample_size)
             
             prompt += """
@@ -123,20 +123,11 @@ class PersonaGenerator:
             The new persona should represent a demographic profile not already covered by these examples:
             """
             
+            # Add the selected personas to the prompt
             for i, persona in enumerate(sample_personas):
-                # Extract key attributes to show as examples
-                persona_summary = {
-                    "name": persona.get("name", "Unknown"),
-                    "age": persona.get("age", "Unknown"),
-                    "gender": persona.get("gender", "Unknown"),
-                    "occupation": persona.get("occupation", "Unknown"),
-                    "education_level": persona.get("education_level", "Unknown"),
-                    "income_level": persona.get("income_level", "Unknown"),
-                    "location": persona.get("location", "Unknown"),
-                    "attributes": persona.get("attributes", [])
-                }
-                prompt += f"\n\nExisting Persona {i+1}:\n"
-                prompt += json.dumps(persona_summary, indent=2)
+                # Include the full persona JSON
+                prompt += f"\n\nExisting Persona {i+1}/{len(sample_personas)}:\n"
+                prompt += json.dumps(persona, indent=2) + "\n"
         
         prompt += """
         
@@ -164,67 +155,196 @@ class PersonaGenerator:
         return prompt
     
     def check_persona_similarity(self, new_persona: Dict[str, Any], existing_personas: List[Dict[str, Any]]) -> Tuple[bool, str, Optional[Dict[str, Any]]]:
-        """Check if a new persona is substantially different from existing ones.
+        """Check if a new persona is too similar to existing personas.
         
         Args:
-            new_persona: The newly generated persona to check
+            new_persona: The new persona to check
             existing_personas: List of existing personas to compare against
             
         Returns:
-            Tuple containing:
-                - Boolean indicating if the persona is sufficiently different
-                - Explanation of the similarity check
-                - The most similar persona if found, or None
+            Tuple of (is_different, explanation, most_similar_persona)
         """
         if not existing_personas:
             return True, "No existing personas to compare with", None
         
-        # Define key attributes to compare
-        key_attributes = [
-            "age", "gender", "occupation", "education_level", "income_level", 
-            "location", "digital_literacy", "financial_knowledge", "attributes"
-        ]
+        # First check for duplicate or very similar names - this is an immediate rejection
+        if "name" in new_persona:
+            new_name = new_persona["name"].lower() if isinstance(new_persona["name"], str) else ""
+            new_name_parts = new_name.split()
+            
+            for persona in existing_personas:
+                if "name" in persona:
+                    existing_name = persona["name"].lower() if isinstance(persona["name"], str) else ""
+                    existing_name_parts = existing_name.split()
+                    
+                    # Reject if full name is identical or very similar
+                    if new_name == existing_name:
+                        return False, f"Duplicate name: {new_persona.get('name')}", persona
+                    
+                    # Check for shared first and last names
+                    if len(new_name_parts) >= 2 and len(existing_name_parts) >= 2:
+                        # Check if both first and last names match
+                        if new_name_parts[0] == existing_name_parts[0] and new_name_parts[-1] == existing_name_parts[-1]:
+                            return False, f"Similar name (same first and last name): {new_persona.get('name')} vs {persona.get('name')}", persona
+                        
+                        # Check if first name and occupation match (strong indicator of similarity)
+                        if new_name_parts[0] == existing_name_parts[0] and \
+                           "occupation" in new_persona and "occupation" in persona and \
+                           new_persona["occupation"].lower() == persona["occupation"].lower():
+                            return False, f"Similar profile (same first name and occupation): {new_persona.get('name')} ({new_persona.get('occupation')}) vs {persona.get('name')} ({persona.get('occupation')})", persona
         
+        # Define key attributes to compare with their weights
+        key_attributes = {
+            "name": 2.0,        # Highest weight for name
+            "age": 0.7,         # Age is important but allow some variation
+            "gender": 1.0,      # Gender is significant
+            "occupation": 1.5,  # Occupation is very significant
+            "education_level": 0.8,
+            "income_level": 0.8,
+            "location": 1.2,    # Location is significant
+            "digital_literacy": 0.6,
+            "financial_knowledge": 0.6,
+            "banking_habits": 0.7,
+            "financial_goals": 0.5,
+            "challenges": 0.5,
+            "attributes": 1.0   # Attributes are significant
+        }
+        
+        # Check for critical demographic combination matches
+        for persona in existing_personas:
+            # Count critical matches (occupation, location, age range, gender)
+            critical_matches = 0
+            critical_match_details = []
+            
+            # Check occupation
+            if "occupation" in new_persona and "occupation" in persona:
+                new_occ = new_persona["occupation"].lower() if isinstance(new_persona["occupation"], str) else ""
+                existing_occ = persona["occupation"].lower() if isinstance(persona["occupation"], str) else ""
+                if new_occ == existing_occ:
+                    critical_matches += 1
+                    critical_match_details.append(f"occupation: {new_persona['occupation']}")
+            
+            # Check location
+            if "location" in new_persona and "location" in persona:
+                new_loc = new_persona["location"].lower() if isinstance(new_persona["location"], str) else ""
+                existing_loc = persona["location"].lower() if isinstance(persona["location"], str) else ""
+                if new_loc == existing_loc:
+                    critical_matches += 1
+                    critical_match_details.append(f"location: {new_persona['location']}")
+            
+            # Check gender
+            if "gender" in new_persona and "gender" in persona:
+                if str(new_persona["gender"]).lower() == str(persona["gender"]).lower():
+                    critical_matches += 1
+                    critical_match_details.append(f"gender: {new_persona['gender']}")
+            
+            # Check age range
+            if "age" in new_persona and "age" in persona:
+                try:
+                    age_diff = abs(int(new_persona["age"]) - int(persona["age"]))
+                    if age_diff <= 5:  # Close age range
+                        critical_matches += 1
+                        critical_match_details.append(f"age: {new_persona['age']} vs {persona['age']}")
+                except (ValueError, TypeError):
+                    pass  # Skip if age is not a valid integer
+            
+            # If 3 or more critical attributes match, reject immediately
+            if critical_matches >= 3:
+                return False, f"Too many critical demographic matches: {', '.join(critical_match_details)}", persona
+        
+        # Detailed weighted similarity calculation
         most_similar_persona = None
         highest_similarity = 0
         similarity_reasons = []
         
         for persona in existing_personas:
-            # Count matching attributes
-            matches = 0
-            total_comparable = 0
+            weighted_matches = 0
+            total_weight = 0
             matching_attrs = []
             
-            for attr in key_attributes:
+            for attr, weight in key_attributes.items():
                 if attr in new_persona and attr in persona:
-                    total_comparable += 1
+                    total_weight += weight
+                    
+                    # Special handling for name
+                    if attr == "name":
+                        new_name = str(new_persona[attr]).lower()
+                        existing_name = str(persona[attr]).lower()
+                        
+                        # Check for name similarity
+                        new_parts = set(new_name.split())
+                        existing_parts = set(existing_name.split())
+                        overlap = len(new_parts & existing_parts)
+                        
+                        if overlap > 0:
+                            name_similarity = overlap / max(len(new_parts), len(existing_parts))
+                            weighted_matches += weight * name_similarity
+                            matching_attrs.append(f"name (similarity: {name_similarity:.2f})")
                     
                     # Special handling for attributes list
-                    if attr == "attributes" and isinstance(new_persona[attr], list) and isinstance(persona[attr], list):
+                    elif attr == "attributes" and isinstance(new_persona[attr], list) and isinstance(persona[attr], list):
                         # Check overlap in attributes
-                        overlap = set(new_persona[attr]) & set(persona[attr])
-                        if len(overlap) >= 2:  # If 2 or more attributes overlap
-                            matches += 1
+                        new_attrs = set(str(a).lower() for a in new_persona[attr])
+                        existing_attrs = set(str(a).lower() for a in persona[attr])
+                        overlap = new_attrs & existing_attrs
+                        
+                        if overlap:
+                            attr_similarity = len(overlap) / max(len(new_attrs), len(existing_attrs))
+                            weighted_matches += weight * attr_similarity
                             matching_attrs.append(f"attributes ({', '.join(overlap)})")
-                    # Special handling for age (allow range)
-                    elif attr == "age" and abs(int(new_persona[attr]) - int(persona[attr])) <= 5:
-                        matches += 1
-                        matching_attrs.append(f"age ({new_persona[attr]} vs {persona[attr]})")
+                    
+                    # Special handling for age
+                    elif attr == "age":
+                        try:
+                            age_diff = abs(int(new_persona[attr]) - int(persona[attr]))
+                            if age_diff <= 10:
+                                age_similarity = 1.0 - (age_diff / 10.0)
+                                weighted_matches += weight * age_similarity
+                                matching_attrs.append(f"age ({new_persona[attr]} vs {persona[attr]})")
+                        except (ValueError, TypeError):
+                            pass  # Skip if age is not a valid integer
+                    
+                    # Special handling for text fields
+                    elif attr in ["occupation", "education_level", "income_level", "location", 
+                                "digital_literacy", "financial_knowledge", "banking_habits", 
+                                "financial_goals", "challenges"]:
+                        # Convert to strings for comparison
+                        new_val = str(new_persona[attr]).lower()
+                        existing_val = str(persona[attr]).lower()
+                        
+                        # If exact match
+                        if new_val == existing_val:
+                            weighted_matches += weight
+                            matching_attrs.append(attr)
+                        # Check for significant text overlap
+                        else:
+                            new_words = set(new_val.split())
+                            existing_words = set(existing_val.split())
+                            
+                            if new_words and existing_words:  # Ensure non-empty
+                                overlap = len(new_words & existing_words)
+                                total_words = max(len(new_words), len(existing_words))
+                                
+                                if overlap > 2 or (overlap / total_words > 0.4):
+                                    text_similarity = overlap / total_words
+                                    weighted_matches += weight * text_similarity
+                                    matching_attrs.append(f"{attr} (similarity: {text_similarity:.2f})")
+                    
                     # Direct comparison for other attributes
                     elif new_persona[attr] == persona[attr]:
-                        matches += 1
+                        weighted_matches += weight
                         matching_attrs.append(attr)
             
-            # Calculate similarity percentage
-            similarity = matches / total_comparable if total_comparable > 0 else 0
+            # Calculate weighted similarity percentage
+            similarity = weighted_matches / total_weight if total_weight > 0 else 0
             
             if similarity > highest_similarity:
                 highest_similarity = similarity
                 most_similar_persona = persona
                 similarity_reasons = matching_attrs
         
-        # Consider personas too similar if they match on more than 70% of attributes
-        is_different = highest_similarity < 0.7
+        # Lower threshold to 0.5 to be more strict about similarity
+        is_different = highest_similarity < 0.5
         
         explanation = f"Similarity score: {highest_similarity:.2f}. "
         if is_different:
@@ -258,16 +378,9 @@ class PersonaGenerator:
                 adjusted_temp = min(min_temp + temp_boost, max_temp)
             
             # Generate a new persona, passing existing personas to guide generation
-            # For the first attempt, use a subset of existing personas to avoid overwhelming the model
-            if attempts == 0 and existing_personas and len(existing_personas) > 3:
-                # Use a random sample of existing personas for the initial generation
-                sample_size = min(3, len(existing_personas))
-                sample_personas = random.sample(existing_personas, sample_size)
-                new_persona = self.generate_persona(diversity_level, adjusted_temp, sample_personas)
-            else:
-                # For subsequent attempts, use the full set of existing personas
-                # or if we have 3 or fewer personas, use all of them from the start
-                new_persona = self.generate_persona(diversity_level, adjusted_temp, existing_personas)
+            # We want to include all existing personas in the prompt for better diversity
+            # Note: The generate_prompt method will handle limiting the number of examples if needed
+            new_persona = self.generate_persona(diversity_level, adjusted_temp, existing_personas)
             
             # Check if the persona is valid
             if "error" in new_persona:
@@ -346,6 +459,24 @@ class PersonaGenerator:
         """
         # Generate prompt with existing personas if provided
         prompt = self.generate_prompt(existing_personas)
+        
+        # Save the prompt to a text file for debugging
+        os.makedirs(os.path.join("db_files", "personas", "prompts"), exist_ok=True)
+        prompt_filename = os.path.join("db_files", "personas", "prompts", f"prompt_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt")
+        
+        # Count existing personas in the prompt
+        num_personas = 0
+        if existing_personas:
+            num_personas = len(existing_personas)
+        
+        # Add metadata to the prompt file
+        with open(prompt_filename, "w", encoding="utf-8") as f:
+            f.write(f"# Prompt generated at {datetime.now().isoformat()}\n")
+            f.write(f"# Number of existing personas included: {num_personas}\n")
+            f.write(f"# Diversity level: {diversity_level}\n\n")
+            f.write(prompt)
+        
+        print(f"Saved prompt to {prompt_filename}")
         
         # Determine temperature to use
         if temperature is not None:
@@ -516,7 +647,7 @@ class PersonaGenerator:
             if enforce_diversity:
                 # Generate a diverse persona using all existing personas
                 # Include both previously loaded personas and any we've created in this session
-                all_personas_for_comparison = existing_personas + [p for p in existing_personas if isinstance(p, dict)]
+                all_personas_for_comparison = existing_personas + generated_personas
                 
                 # Generate a diverse persona
                 persona = self.ensure_diverse_persona(

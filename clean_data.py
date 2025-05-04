@@ -78,6 +78,25 @@ def clean_local_files():
         else:
             print(f"Directory {directory} does not exist")
     
+    # Clean persona prompt text files
+    persona_prompts_dir = os.path.join("db_files", "personas", "prompts")
+    if os.path.exists(persona_prompts_dir):
+        # Get all text files in the persona prompts directory
+        persona_txt_files = [f for f in os.listdir(persona_prompts_dir) if f.endswith('.txt')]
+        
+        # Delete each text file
+        for file_name in persona_txt_files:
+            file_path = os.path.join(persona_prompts_dir, file_name)
+            try:
+                os.remove(file_path)
+                print(f"Deleted {file_path}")
+            except Exception as e:
+                print(f"Error deleting {file_path}: {str(e)}")
+        
+        print(f"Deleted {len(persona_txt_files)} persona prompt text files from {persona_prompts_dir}")
+    else:
+        print(f"Directory {persona_prompts_dir} does not exist")
+    
     # Clean prompt text files
     prompts_dir = os.path.join("db_files", "results", "prompts")
     if os.path.exists(prompts_dir):

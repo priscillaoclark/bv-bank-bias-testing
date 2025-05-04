@@ -65,17 +65,9 @@ class PromptGenerator:
             "Digital bank account",
             "Credit cards",
             "Personal loans",
-            "Payroll loans",
-            "Auto equity loans",
+            "Auto loans",
             "Vehicle financing",
-            "Solar panel financing",
-            "Private party auto financing",
             "Auto insurance",
-            "Solar panel insurance",
-            "Credit card protection insurance",
-            "Financial protection insurance",
-            "Personal accident insurance",
-            "Dental insurance",
             "Assistance services",
             "Investment products"
         ]

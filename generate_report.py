@@ -259,11 +259,12 @@ class ReportGenerator:
             "financial_knowledge": "Unknown",
         }
     
-    def calculate_bias_statistics(self, analysis_results: List[Dict[str, Any]]) -> Dict[str, Any]:
+    def calculate_bias_statistics(self, analysis_results: List[Dict[str, Any]], prompts: Dict[str, Dict[str, Any]] = None) -> Dict[str, Any]:
         """Calculate statistics from bias analysis results.
         
         Args:
             analysis_results: List of analysis result documents
+            prompts: Dictionary of all prompts, keyed by prompt ID
             
         Returns:
             Dictionary with statistics
@@ -277,9 +278,25 @@ class ReportGenerator:
         }
         
         for result in analysis_results:
-            # Count by product and language
-            product = result.get("product", "Unknown")
-            language = result.get("language", "Unknown")
+            # Get product and language from the prompt documents
+            product = "Unknown"
+            language = "Unknown"
+            
+            # Try to get product and language from persona prompt
+            persona_prompt_id = result.get("persona_prompt_id", "")
+            if prompts and persona_prompt_id and persona_prompt_id in prompts:
+                product = prompts[persona_prompt_id].get("product", "Unknown")
+                language = prompts[persona_prompt_id].get("language", "Unknown")
+            
+            # If not found, try baseline prompt
+            if (product == "Unknown" or language == "Unknown") and prompts:
+                baseline_prompt_id = result.get("baseline_prompt_id", "")
+                if baseline_prompt_id and baseline_prompt_id in prompts:
+                    if product == "Unknown":
+                        product = prompts[baseline_prompt_id].get("product", "Unknown")
+                    if language == "Unknown":
+                        language = prompts[baseline_prompt_id].get("language", "Unknown")
+            
             stats["by_product"][product] += 1
             stats["by_language"][language] += 1
             
@@ -385,7 +402,7 @@ class ReportGenerator:
             output_file = os.path.join(self.output_dir, f"bias_analysis_report_{timestamp}.txt")
         
         # Calculate overall statistics
-        stats = self.calculate_bias_statistics(analysis_results)
+        stats = self.calculate_bias_statistics(analysis_results, prompts)
         
         # Organize results by persona
         results_by_persona = self.organize_results_by_persona(analysis_results, prompts, personas)
@@ -436,24 +453,35 @@ class ReportGenerator:
                 # Aggregate statistical metrics
                 sentiment_diffs = []
                 response_length_diffs = []
-                complexity_diffs = []
+                readability_diffs = []
                 similarity_scores = []
                 
                 for stat in statistical_results:
-                    metrics = stat.get("metrics", {})
-                    sentiment_diff = metrics.get("sentiment_difference", 0)
+                    # Extract sentiment difference from sentiment_analysis
+                    sentiment_analysis = stat.get("sentiment_analysis", {})
+                    sentiment_diff = sentiment_analysis.get("difference", {}).get("compound", 0)
                     if sentiment_diff is not None:
                         sentiment_diffs.append(sentiment_diff)
                     
-                    length_diff = metrics.get("response_length_difference", 0)
-                    if length_diff is not None:
-                        response_length_diffs.append(length_diff)
+                    # Extract response length difference
+                    response_metrics = stat.get("response_metrics", {})
+                    baseline_length = response_metrics.get("baseline", {}).get("length", 0)
+                    persona_length = response_metrics.get("persona", {}).get("length", 0)
+                    if baseline_length is not None and persona_length is not None:
+                        # Calculate percentage difference
+                        if baseline_length > 0:
+                            length_diff = (persona_length - baseline_length) / baseline_length
+                            response_length_diffs.append(length_diff)
                     
-                    complexity_diff = metrics.get("complexity_difference", 0)
-                    if complexity_diff is not None:
-                        complexity_diffs.append(complexity_diff)
+                    # Extract readability difference (using Flesch-Kincaid Grade Level)
+                    baseline_fk = response_metrics.get("baseline", {}).get("flesch_kincaid_grade", 0)
+                    persona_fk = response_metrics.get("persona", {}).get("flesch_kincaid_grade", 0)
+                    if baseline_fk is not None and persona_fk is not None:
+                        readability_diff = persona_fk - baseline_fk
+                        readability_diffs.append(readability_diff)
                     
-                    similarity = metrics.get("similarity_score", 0)
+                    # Extract similarity score
+                    similarity = stat.get("similarity_analysis", {}).get("cosine_similarity", 0)
                     if similarity is not None:
                         similarity_scores.append(similarity)
                 
@@ -462,25 +490,29 @@ class ReportGenerator:
                     f.write(f"Sentiment differences (baseline vs. persona):\n")
                     f.write(f"  - Mean: {statistics.mean(sentiment_diffs):.2f}\n")
                     f.write(f"  - Median: {statistics.median(sentiment_diffs):.2f}\n")
-                    f.write(f"  - Range: {min(sentiment_diffs):.2f} - {max(sentiment_diffs):.2f}\n\n")
+                    f.write(f"  - Range: {min(sentiment_diffs):.2f} - {max(sentiment_diffs):.2f}\n")
+                    f.write(f"  - Note: Negative values indicate more negative sentiment in persona responses\n\n")
                 
                 if response_length_diffs:
                     f.write(f"Response length differences (baseline vs. persona):\n")
-                    f.write(f"  - Mean: {statistics.mean(response_length_diffs):.2f}\n")
-                    f.write(f"  - Median: {statistics.median(response_length_diffs):.2f}\n")
-                    f.write(f"  - Range: {min(response_length_diffs):.2f} - {max(response_length_diffs):.2f}\n\n")
+                    f.write(f"  - Mean: {statistics.mean(response_length_diffs)*100:.2f}%\n")
+                    f.write(f"  - Median: {statistics.median(response_length_diffs)*100:.2f}%\n")
+                    f.write(f"  - Range: {min(response_length_diffs)*100:.2f}% - {max(response_length_diffs)*100:.2f}%\n")
+                    f.write(f"  - Note: Positive values indicate longer responses for persona\n\n")
                 
-                if complexity_diffs:
-                    f.write(f"Complexity differences (baseline vs. persona):\n")
-                    f.write(f"  - Mean: {statistics.mean(complexity_diffs):.2f}\n")
-                    f.write(f"  - Median: {statistics.median(complexity_diffs):.2f}\n")
-                    f.write(f"  - Range: {min(complexity_diffs):.2f} - {max(complexity_diffs):.2f}\n\n")
+                if readability_diffs:
+                    f.write(f"Readability differences (Flesch-Kincaid Grade Level):\n")
+                    f.write(f"  - Mean: {statistics.mean(readability_diffs):.2f} grade levels\n")
+                    f.write(f"  - Median: {statistics.median(readability_diffs):.2f} grade levels\n")
+                    f.write(f"  - Range: {min(readability_diffs):.2f} - {max(readability_diffs):.2f} grade levels\n")
+                    f.write(f"  - Note: Positive values indicate more complex language for persona\n\n")
                 
                 if similarity_scores:
                     f.write(f"Response similarity scores (baseline vs. persona):\n")
                     f.write(f"  - Mean: {statistics.mean(similarity_scores):.2f}\n")
                     f.write(f"  - Median: {statistics.median(similarity_scores):.2f}\n")
-                    f.write(f"  - Range: {min(similarity_scores):.2f} - {max(similarity_scores):.2f}\n\n")
+                    f.write(f"  - Range: {min(similarity_scores):.2f} - {max(similarity_scores):.2f}\n")
+                    f.write(f"  - Note: Higher values (closer to 1.0) indicate more similar responses\n\n")
                 
                 # Collect readability metrics
                 readability_diffs = []
@@ -562,7 +594,26 @@ class ReportGenerator:
                 # Group results by product and language
                 by_product_language = defaultdict(list)
                 for result in results:
-                    key = (result.get("product", "Unknown"), result.get("language", "Unknown"))
+                    # Get product and language from the prompts
+                    product = "Unknown"
+                    language = "Unknown"
+                    
+                    # Try to get from persona prompt
+                    persona_prompt_id = result.get("persona_prompt_id", "")
+                    if persona_prompt_id and persona_prompt_id in prompts:
+                        product = prompts[persona_prompt_id].get("product", "Unknown")
+                        language = prompts[persona_prompt_id].get("language", "Unknown")
+                    
+                    # If not found, try baseline prompt
+                    if (product == "Unknown" or language == "Unknown"):
+                        baseline_prompt_id = result.get("baseline_prompt_id", "")
+                        if baseline_prompt_id and baseline_prompt_id in prompts:
+                            if product == "Unknown":
+                                product = prompts[baseline_prompt_id].get("product", "Unknown")
+                            if language == "Unknown":
+                                language = prompts[baseline_prompt_id].get("language", "Unknown")
+                    
+                    key = (product, language)
                     by_product_language[key].append(result)
                 
                 for (product, language), prod_results in by_product_language.items():
@@ -572,33 +623,78 @@ class ReportGenerator:
                         f.write(f"      Analysis {i}:\n")
                         
                         # Get conversation details
-                        baseline_conv_id = result.get("baseline_conversation_id", "")
-                        persona_conv_id = result.get("persona_conversation_id", "")
+                        baseline_conv_id = str(result.get("baseline_conversation_id", ""))
+                        persona_conv_id = str(result.get("persona_conversation_id", ""))
                         
                         baseline_prompt = ""
                         persona_prompt = ""
                         baseline_response = ""
                         persona_response = ""
                         
+                        # Debug information
+                        print(f"Looking for baseline conversation ID: {baseline_conv_id}")
+                        print(f"Looking for persona conversation ID: {persona_conv_id}")
+                        
+                        # Try to find conversations by ID
+                        baseline_conv = None
+                        persona_conv = None
+                        
+                        # Try direct lookup first
                         if baseline_conv_id in conversations:
                             baseline_conv = conversations[baseline_conv_id]
+                        else:
+                            # Try looking through all conversations
+                            for conv_id, conv in conversations.items():
+                                if str(conv.get("_id", "")) == baseline_conv_id:
+                                    baseline_conv = conv
+                                    break
+                        
+                        if persona_conv_id in conversations:
+                            persona_conv = conversations[persona_conv_id]
+                        else:
+                            # Try looking through all conversations
+                            for conv_id, conv in conversations.items():
+                                if str(conv.get("_id", "")) == persona_conv_id:
+                                    persona_conv = conv
+                                    break
+                        
+                        # Extract prompt and response from conversations
+                        if baseline_conv:
                             turns = baseline_conv.get("turns", [])
                             if len(turns) >= 2:
                                 baseline_prompt = turns[0].get("content", "")
                                 baseline_response = turns[1].get("content", "")
                         
-                        if persona_conv_id in conversations:
-                            persona_conv = conversations[persona_conv_id]
+                        if persona_conv:
                             turns = persona_conv.get("turns", [])
                             if len(turns) >= 2:
                                 persona_prompt = turns[0].get("content", "")
                                 persona_response = turns[1].get("content", "")
                         
                         # Write conversation details
-                        f.write(f"        Baseline Prompt: {baseline_prompt[:100]}...\n")
-                        f.write(f"        Baseline Response: {baseline_response[:100]}...\n")
-                        f.write(f"        Persona Prompt: {persona_prompt[:100]}...\n")
-                        f.write(f"        Persona Response: {persona_response[:100]}...\n\n")
+                        # For baseline prompt, show full text if it's short, otherwise truncate
+                        if len(baseline_prompt) <= 100:
+                            f.write(f"        Baseline Prompt: {baseline_prompt}\n")
+                        else:
+                            f.write(f"        Baseline Prompt: {baseline_prompt[:100]}...\n")
+                        
+                        # For baseline response, show full text if it's short, otherwise truncate
+                        if len(baseline_response) <= 100:
+                            f.write(f"        Baseline Response: {baseline_response}\n")
+                        else:
+                            f.write(f"        Baseline Response: {baseline_response[:100]}...\n")
+                        
+                        # For persona prompt, show full text if it's short, otherwise truncate
+                        if len(persona_prompt) <= 100:
+                            f.write(f"        Persona Prompt: {persona_prompt}\n")
+                        else:
+                            f.write(f"        Persona Prompt: {persona_prompt[:100]}...\n")
+                        
+                        # For persona response, show full text if it's short, otherwise truncate
+                        if len(persona_response) <= 100:
+                            f.write(f"        Persona Response: {persona_response}\n\n")
+                        else:
+                            f.write(f"        Persona Response: {persona_response[:100]}...\n\n")
                         
                         # Write criteria analysis
                         criteria_analysis = result.get("criteria_analysis", {})
@@ -623,14 +719,34 @@ class ReportGenerator:
                                 break
                         
                         if matching_stats:
-                            metrics = matching_stats.get("metrics", {})
                             f.write(f"        Statistical Metrics:\n")
-                            f.write(f"          - Sentiment Difference: {metrics.get('sentiment_difference', 'N/A')}\n")
-                            f.write(f"          - Response Length Difference: {metrics.get('response_length_difference', 'N/A')}\n")
-                            f.write(f"          - Similarity Score: {metrics.get('similarity_score', 'N/A')}\n")
+                            
+                            # Sentiment difference
+                            sentiment_analysis = matching_stats.get("sentiment_analysis", {})
+                            sentiment_diff = sentiment_analysis.get("difference", {}).get("compound", 'N/A')
+                            f.write(f"          - Sentiment Difference: {sentiment_diff}\n")
+                            
+                            # Response length difference
+                            response_metrics = matching_stats.get("response_metrics", {})
+                            baseline_length = response_metrics.get("baseline", {}).get("length", 0)
+                            persona_length = response_metrics.get("persona", {}).get("length", 0)
+                            length_diff = 'N/A'
+                            if baseline_length > 0:
+                                length_diff = f"{((persona_length - baseline_length) / baseline_length) * 100:.1f}%"
+                            f.write(f"          - Response Length Difference: {length_diff}\n")
+                            
+                            # Readability difference
+                            baseline_fk = response_metrics.get("baseline", {}).get("flesch_kincaid_grade", 0)
+                            persona_fk = response_metrics.get("persona", {}).get("flesch_kincaid_grade", 0)
+                            readability_diff = f"{persona_fk - baseline_fk:.1f} grade levels"
+                            f.write(f"          - Readability Difference: {readability_diff}\n")
+                            
+                            # Similarity score
+                            similarity = matching_stats.get("similarity_analysis", {}).get("cosine_similarity", 'N/A')
+                            f.write(f"          - Similarity Score: {similarity}\n")
                             
                             # Add readability metrics if available
-                            readability_diff = metrics.get('readability_difference')
+                            readability_diff = response_metrics.get('baseline', {}).get('flesch_reading_ease', 0) - response_metrics.get('persona', {}).get('flesch_reading_ease', 0)
                             if readability_diff is not None:
                                 f.write(f"          - Flesch-Kincaid Grade Level Difference: {readability_diff:.2f}\n")
                                 f.write(f"            (Positive values indicate MORE complex language for persona)\n")

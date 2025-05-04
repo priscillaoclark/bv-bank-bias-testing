@@ -76,6 +76,7 @@ class BiasTester:
             if enforce_diversity:
                 # Use the new ensure_diverse_persona method for each persona
                 persona_ids = []
+                generated_personas = []
                 existing_personas = []
                 
                 # Try to get existing personas from the database for comparison
@@ -89,7 +90,7 @@ class BiasTester:
                 for i in range(num_personas):
                     print(f"\nGenerating persona {i+1}/{num_personas}...")
                     # Combine existing and newly generated personas for comparison
-                    all_personas_for_comparison = existing_personas + [p for p in existing_personas if isinstance(p, dict)]
+                    all_personas_for_comparison = existing_personas + [p for p in generated_personas if isinstance(p, dict)]
                     
                     # Generate a diverse persona
                     persona = self.persona_generator.ensure_diverse_persona(
@@ -102,7 +103,7 @@ class BiasTester:
                     persona_id = self.persona_generator.save_persona(persona)
                     if persona_id:
                         persona_ids.append(persona_id)
-                        existing_personas.append(persona)  # Add to our comparison set for next iteration
+                        generated_personas.append(persona)  # Add to our list of generated personas
                 
                 return persona_ids
             else:
