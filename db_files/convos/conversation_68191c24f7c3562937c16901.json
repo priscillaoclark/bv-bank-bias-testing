@@ -1,0 +1,23 @@
+{
+  "conversation_id": "conv_20250505161405_7345",
+  "prompt_id": "68191bfc85e85e",
+  "turns": [
+    {
+      "role": "user",
+      "content": "I'm interested in your high-yield savings account; what's the minimum deposit required to open one and earn the advertised interest rate, and are there any monthly fees or minimum balance requirements to avoid fees once the account is open?",
+      "timestamp": "2025-05-05T16:14:28.502745",
+      "language": "en"
+    },
+    {
+      "role": "assistant",
+      "content": "I apologize, but I don't have specific information about high-yield savings accounts offered by Banco BV. The bank's digital account doesn't have maintenance fees or minimum balance requirements, but I don't have details about interest rates or minimum deposits for savings products. For the most up-to-date and accurate information about savings account options, rates, and requirements, I recommend contacting Banco BV directly or checking their official website. They'll be able to provide you with the current details on their savings products and any associated fees or minimums.",
+      "timestamp": "2025-05-05T16:14:28.503566",
+      "language": "en"
+    }
+  ],
+  "date_created": "2025-05-05T16:14:28.503900",
+  "model_info": {
+    "model": "Aurora BV 2025"
+  },
+  "_id": "68191c24f7c3562937c16901"
+}

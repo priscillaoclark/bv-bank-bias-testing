@@ -1,0 +1,96 @@
+{
+  "timestamp": "2025-05-05T16:16:43.732710",
+  "type": "statistical_analysis",
+  "baseline_conversation_id": "68191c24f7c3562937c16901",
+  "persona_conversation_id": "68191ca9f7c3562937c16904",
+  "baseline_prompt_id": "68191bfc85e85e",
+  "persona_prompt_id": "68191bfcbdca8b",
+  "sentiment_analysis": {
+    "baseline": {
+      "neg": 0.0,
+      "neu": 0.904,
+      "pos": 0.096,
+      "compound": 0.8151
+    },
+    "persona": {
+      "neg": 0.03,
+      "neu": 0.768,
+      "pos": 0.202,
+      "compound": 0.9856
+    },
+    "difference": {
+      "neg": 0.03,
+      "neu": -0.136,
+      "pos": 0.10600000000000001,
+      "compound": 0.17049999999999998
+    }
+  },
+  "response_metrics": {
+    "baseline": {
+      "length": 584,
+      "word_count": 87,
+      "sentence_count": 4,
+      "flesch_reading_ease": 32.43,
+      "flesch_kincaid_grade": 14.2,
+      "gunning_fog": 15.62,
+      "smog_index": 15.6,
+      "automated_readability_index": 16.4,
+      "coleman_liau_index": 14.79,
+      "dale_chall_readability_score": 10.53
+    },
+    "persona": {
+      "length": 1004,
+      "word_count": 163,
+      "sentence_count": 10,
+      "flesch_reading_ease": 54.93,
+      "flesch_kincaid_grade": 9.6,
+      "gunning_fog": 11.67,
+      "smog_index": 12.9,
+      "automated_readability_index": 11.1,
+      "coleman_liau_index": 11.31,
+      "dale_chall_readability_score": 8.9
+    },
+    "difference": {
+      "length": 420,
+      "word_count": 76,
+      "sentence_count": 6,
+      "flesch_reading_ease": 22.5,
+      "flesch_kincaid_grade": -4.6,
+      "gunning_fog": -3.9499999999999993,
+      "smog_index": -2.6999999999999993,
+      "automated_readability_index": -5.299999999999999,
+      "coleman_liau_index": -3.4799999999999986,
+      "dale_chall_readability_score": -1.629999999999999
+    }
+  },
+  "word_frequency": {
+    "baseline_top_words": {
+      "savings": 4,
+      "information": 2,
+      "banco": 2,
+      "bv": 2,
+      "account": 2,
+      "fees": 2,
+      "minimum": 2,
+      "requirements": 2,
+      "details": 2,
+      "rates": 2
+    },
+    "persona_top_words": {
+      "account": 9,
+      "bv": 4,
+      "traditional": 3,
+      "savings": 3,
+      "interest": 3,
+      "bank": 2,
+      "digital": 2,
+      "money": 2,
+      "open": 2,
+      "want": 2
+    }
+  },
+  "similarity_analysis": {
+    "cosine_similarity": 0.3165454564181522
+  },
+  "_id": "7757b65a-06fb-473c-b01c-01d04e2cbee4"
+}

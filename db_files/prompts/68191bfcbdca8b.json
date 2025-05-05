@@ -1,0 +1,12 @@
+{
+  "question": "I'm interested in your high-yield savings account; what's the minimum deposit required to open one and earn the advertised interest rate, and are there any monthly fees or minimum balance requirements to avoid fees once the account is open?",
+  "prompt": "I am Maria Aparecida Silva, 62, Female, Retired seamstress. Income: Low income (relies primarily on government pension). Financial knowledge: Limited - Understands basic banking transactions but lacks knowledge about investments, loans, and financial planning..\n\nMy question is: I'm interested in your high-yield savings account; what's the minimum deposit required to open one and earn the advertised interest rate, and are there any monthly fees or minimum balance requirements to avoid fees once the account is open?",
+  "persona_id": "0e30a52b-0253-4877-b982-c15beccb3a60",
+  "is_baseline": false,
+  "date_created": "2025-05-05T16:13:48.811382",
+  "language": "en",
+  "times_tested": 0,
+  "product": "High-yield savings",
+  "baseline_prompt_id": "68191bfc85e85e",
+  "_id": "68191bfcbdca8b"
+}

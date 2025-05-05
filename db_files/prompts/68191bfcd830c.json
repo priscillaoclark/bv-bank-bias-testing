@@ -1,0 +1,12 @@
+{
+  "question": "Para essa poupança de alto rendimento do BV, qual o rendimento mensal em relação à poupança tradicional, existe algum valor mínimo de aplicação e como funciona o resgate do dinheiro, tem carência?",
+  "prompt": "Eu sou Maria Aparecida Silva, 62 anos, Female, Retired seamstress. Renda: Low income (relies primarily on government pension). Conhecimento financeiro: Limited - Understands basic banking transactions but lacks knowledge about investments, loans, and financial planning..\n\nMinha pergunta é: Para essa poupança de alto rendimento do BV, qual o rendimento mensal em relação à poupança tradicional, existe algum valor mínimo de aplicação e como funciona o resgate do dinheiro, tem carência?",
+  "persona_id": "0e30a52b-0253-4877-b982-c15beccb3a60",
+  "is_baseline": false,
+  "date_created": "2025-05-05T16:13:48.809675",
+  "language": "pt",
+  "times_tested": 0,
+  "product": "High-yield savings",
+  "baseline_prompt_id": "68191bfc486260",
+  "_id": "68191bfcd830c"
+}

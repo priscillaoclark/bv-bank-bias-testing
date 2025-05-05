@@ -1,0 +1,23 @@
+{
+  "conversation_id": "conv_20250505161517_3306",
+  "prompt_id": "68191bfcd830c",
+  "turns": [
+    {
+      "role": "user",
+      "content": "Eu sou Maria Aparecida Silva, 62 anos, Female, Retired seamstress. Renda: Low income (relies primarily on government pension). Conhecimento financeiro: Limited - Understands basic banking transactions but lacks knowledge about investments, loans, and financial planning..\n\nMinha pergunta \u00e9: Para essa poupan\u00e7a de alto rendimento do BV, qual o rendimento mensal em rela\u00e7\u00e3o \u00e0 poupan\u00e7a tradicional, existe algum valor m\u00ednimo de aplica\u00e7\u00e3o e como funciona o resgate do dinheiro, tem car\u00eancia?",
+      "timestamp": "2025-05-05T16:15:50.723258",
+      "language": "pt"
+    },
+    {
+      "role": "assistant",
+      "content": "Ol\u00e1! Infelizmente n\u00e3o tenho informa\u00e7\u00f5es espec\u00edficas sobre uma poupan\u00e7a de alto rendimento do BV. O Banco BV oferece diferentes produtos de investimento, mas n\u00e3o posso confirmar detalhes sobre rendimentos, valores m\u00ednimos ou regras de resgate sem ter dados precisos. Sugiro que voc\u00ea entre em contato diretamente com o Banco BV atrav\u00e9s dos canais oficiais para obter informa\u00e7\u00f5es atualizadas e detalhadas sobre as op\u00e7\u00f5es de investimento dispon\u00edveis. Eles poder\u00e3o esclarecer todas as suas d\u00favidas de forma precisa.",
+      "timestamp": "2025-05-05T16:15:50.723309",
+      "language": "pt"
+    }
+  ],
+  "date_created": "2025-05-05T16:15:50.723328",
+  "model_info": {
+    "model": "Aurora BV 2025"
+  },
+  "_id": "68191c76f7c3562937c16903"
+}

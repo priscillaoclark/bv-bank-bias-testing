@@ -1,0 +1,11 @@
+{
+  "question": "Para essa poupança de alto rendimento do BV, qual o rendimento mensal em relação à poupança tradicional, existe algum valor mínimo de aplicação e como funciona o resgate do dinheiro, tem carência?",
+  "prompt": "Para essa poupança de alto rendimento do BV, qual o rendimento mensal em relação à poupança tradicional, existe algum valor mínimo de aplicação e como funciona o resgate do dinheiro, tem carência?",
+  "persona_id": null,
+  "is_baseline": true,
+  "date_created": "2025-05-05T16:13:48.805590",
+  "language": "pt",
+  "times_tested": 0,
+  "product": "High-yield savings",
+  "_id": "68191bfc486260"
+}

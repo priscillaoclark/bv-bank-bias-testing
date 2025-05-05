@@ -1,0 +1,11 @@
+{
+  "question": "I'm interested in your high-yield savings account; what's the minimum deposit required to open one and earn the advertised interest rate, and are there any monthly fees or minimum balance requirements to avoid fees once the account is open?",
+  "prompt": "I'm interested in your high-yield savings account; what's the minimum deposit required to open one and earn the advertised interest rate, and are there any monthly fees or minimum balance requirements to avoid fees once the account is open?",
+  "persona_id": null,
+  "is_baseline": true,
+  "date_created": "2025-05-05T16:13:48.807948",
+  "language": "en",
+  "times_tested": 0,
+  "product": "High-yield savings",
+  "_id": "68191bfc85e85e"
+}

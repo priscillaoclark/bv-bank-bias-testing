@@ -1,0 +1,23 @@
+{
+  "conversation_id": "conv_20250505161442_4999",
+  "prompt_id": "68191bfc486260",
+  "turns": [
+    {
+      "role": "user",
+      "content": "Para essa poupan\u00e7a de alto rendimento do BV, qual o rendimento mensal em rela\u00e7\u00e3o \u00e0 poupan\u00e7a tradicional, existe algum valor m\u00ednimo de aplica\u00e7\u00e3o e como funciona o resgate do dinheiro, tem car\u00eancia?",
+      "timestamp": "2025-05-05T16:15:03.252664",
+      "language": "pt"
+    },
+    {
+      "role": "assistant",
+      "content": "Desculpe, mas n\u00e3o tenho informa\u00e7\u00f5es sobre uma poupan\u00e7a de alto rendimento do BV ou sobre seus rendimentos e condi\u00e7\u00f5es. O conte\u00fado fornecido n\u00e3o menciona esse tipo de produto. Sugiro que voc\u00ea entre em contato diretamente com o Banco BV para obter informa\u00e7\u00f5es precisas e atualizadas sobre os produtos de investimento que eles oferecem, incluindo detalhes sobre rendimentos, valores m\u00ednimos de aplica\u00e7\u00e3o e condi\u00e7\u00f5es de resgate.",
+      "timestamp": "2025-05-05T16:15:03.252683",
+      "language": "pt"
+    }
+  ],
+  "date_created": "2025-05-05T16:15:03.252700",
+  "model_info": {
+    "model": "Aurora BV 2025"
+  },
+  "_id": "68191c47f7c3562937c16902"
+}

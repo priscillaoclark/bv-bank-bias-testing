@@ -484,7 +484,6 @@ class BiasAnalyzer:
     
     def analyze_bias_for_criteria(self, baseline_response: str, persona_response: str, 
                              criteria_key: str,
-                             stats_context: Optional[str] = None, 
                              stats_json: Optional[Dict[str, Any]] = None,
                              question: Optional[str] = None,
                              baseline_prompt: Optional[str] = None,
@@ -495,8 +494,7 @@ class BiasAnalyzer:
         baseline_response: The response from the chatbot to a generic user
         persona_response: The response from the chatbot to a specific persona
         criteria_key: Key for the bias criteria to analyze
-        stats_context: Optional statistical context to include in the prompt (human-readable)
-        stats_json: Optional statistical metrics in JSON format (for LLM processing)
+        stats_json: Statistical metrics in JSON format
         question: Optional original question that was asked to the chatbot
         baseline_prompt: Optional full prompt used for the baseline conversation
         persona_prompt: Optional full prompt used for the persona conversation
@@ -537,34 +535,23 @@ class BiasAnalyzer:
         {criteria['prompt']}
         """
         
-        # Add statistical context if provided
-        if stats_context or stats_json:
+        # Add statistical metrics if provided
+        print(f"DEBUG: stats_json type: {type(stats_json)}, exists: {stats_json is not None}")
+        if stats_json:
+            print(f"DEBUG: stats_json keys: {list(stats_json.keys()) if isinstance(stats_json, dict) else 'Not a dict'}")
             gemini_prompt += f"""
         
         Additionally, consider the following statistical metrics:
         """
         
-        # Add human-readable context if available
-        if stats_context:
-            gemini_prompt += f"""
-        {stats_context}
-        """
-            
-        # Add JSON metrics for more precise analysis
+        # Add JSON metrics for more precise analysis - directly include the raw stats JSON
         if stats_json:
-            # Extract only the relevant metrics for the LLM
-            metrics_for_llm = {}
-            for key in ["sentiment_analysis", "response_metrics", "word_frequency", "similarity_analysis"]:
-                if key in stats_json:
-                    metrics_for_llm[key] = stats_json[key]
-            
-            # Only include metrics if we have any
-            if metrics_for_llm:
-                gemini_prompt += f"""
+            # Simply dump the entire stats_json directly into the prompt
+            gemini_prompt += f"""
         
         Statistical metrics in JSON format (use this for precise analysis):
         ```json
-        {json.dumps(metrics_for_llm, indent=2)}
+        {json.dumps(stats_json, indent=2)}
         ```
         """
             
@@ -685,7 +672,6 @@ class BiasAnalyzer:
             }
         
         # Extract statistical metrics for this conversation pair if provided
-        stats_context = None
         stats_json = None
         stats_id = None
         
@@ -708,11 +694,71 @@ class BiasAnalyzer:
         
         # If we don't have a stats_id yet, try to extract it from stats_data
         elif stats_data and "results" in stats_data:
-            stats_context, stats_json, stats_id = self._extract_stats_context(
-                stats_data["results"], 
-                baseline_conv.get("_id"), 
-                persona_conv.get("_id")
-            )
+            # stats_data["results"] is a list of analysis IDs (strings)
+            print(f"DEBUG: Checking {len(stats_data['results'])} stats results for conversation pair: {baseline_conv.get('_id')} and {persona_conv.get('_id')}")
+            
+            # Directly check each stats file
+            for analysis_id in stats_data["results"]:
+                try:
+                    stats_file = os.path.join("db_files", "stats", f"{analysis_id}.json")
+                    print(f"DEBUG: Checking stats file: {stats_file}")
+                    
+                    if os.path.exists(stats_file):
+                        with open(stats_file, 'r', encoding='utf-8') as f:
+                            stat = json.load(f)
+                            print(f"DEBUG: Stats file has baseline_id={stat.get('baseline_conversation_id')}, persona_id={stat.get('persona_conversation_id')}")
+                            print(f"DEBUG: Looking for baseline_id={baseline_conv.get('_id')}, persona_id={persona_conv.get('_id')}")
+                            
+                            # The stats file has conversation IDs with 'conversation_' prefix
+                            # We need to compare with the actual IDs from the conversation objects
+                            baseline_id_in_stats = stat.get("baseline_conversation_id")
+                            persona_id_in_stats = stat.get("persona_conversation_id")
+                            baseline_id = baseline_conv.get("_id")
+                            persona_id = persona_conv.get("_id")
+                            
+                            print(f"DEBUG: Comparing IDs: baseline_id_in_stats={baseline_id_in_stats}, baseline_id={baseline_id}")
+                            print(f"DEBUG: Comparing IDs: persona_id_in_stats={persona_id_in_stats}, persona_id={persona_id}")
+                            
+                            # Check if the baseline ID matches, accounting for the 'conversation_' prefix
+                            # Case 1: Direct match
+                            # Case 2: baseline_id_in_stats has prefix, baseline_id doesn't
+                            # Case 3: baseline_id has prefix, baseline_id_in_stats doesn't
+                            baseline_match = (baseline_id_in_stats == baseline_id or 
+                                             baseline_id_in_stats == f"conversation_{baseline_id}" or
+                                             f"conversation_{baseline_id_in_stats}" == baseline_id or
+                                             (baseline_id_in_stats and baseline_id and 
+                                              baseline_id_in_stats.replace("conversation_", "") == baseline_id) or
+                                             (baseline_id_in_stats and baseline_id and 
+                                              baseline_id_in_stats == baseline_id.replace("conversation_", "")))
+                            
+                            # Check if the persona ID matches, accounting for the 'conversation_' prefix
+                            # Case 1: Direct match
+                            # Case 2: persona_id_in_stats has prefix, persona_id doesn't
+                            # Case 3: persona_id has prefix, persona_id_in_stats doesn't
+                            persona_match = (persona_id_in_stats == persona_id or 
+                                           persona_id_in_stats == f"conversation_{persona_id}" or
+                                           f"conversation_{persona_id_in_stats}" == persona_id or
+                                           (persona_id_in_stats and persona_id and 
+                                            persona_id_in_stats.replace("conversation_", "") == persona_id) or
+                                           (persona_id_in_stats and persona_id and 
+                                            persona_id_in_stats == persona_id.replace("conversation_", "")))
+                            
+                            print(f"DEBUG: baseline_id_in_stats={baseline_id_in_stats}, baseline_id={baseline_id}")
+                            print(f"DEBUG: persona_id_in_stats={persona_id_in_stats}, persona_id={persona_id}")
+                            print(f"DEBUG: baseline_id without prefix={baseline_id.replace('conversation_', '') if 'conversation_' in baseline_id else baseline_id}")
+                            print(f"DEBUG: baseline_id_in_stats without prefix={baseline_id_in_stats.replace('conversation_', '') if baseline_id_in_stats and 'conversation_' in baseline_id_in_stats else baseline_id_in_stats}")
+                            
+                            print(f"DEBUG: baseline_match={baseline_match}, persona_match={persona_match}")
+                            
+                            # Check if both IDs match
+                            if baseline_match and persona_match:
+                                print(f"DEBUG: IDs match! baseline: {baseline_id_in_stats} == {baseline_id}, persona: {persona_id_in_stats} == {persona_id}")
+                                stats_id = analysis_id
+                                stats_json = stat
+                                print(f"DEBUG: Found matching statistical analysis: {stats_id}")
+                                break
+                except Exception as e:
+                    print(f"DEBUG: Error loading statistical analysis {analysis_id}: {str(e)}")
             
         # If we still don't have a stats_id, try to find it in the JSON files
         if not stats_id:
@@ -769,14 +815,12 @@ class BiasAnalyzer:
         if pair.get("statistical_analysis_id"):
             analysis_results["statistical_analysis_id"] = pair.get("statistical_analysis_id")
             
-        # We no longer include persona descriptions in the analysis results
-        
-        # If we have statistical data, include it in the analysis
-        if stats_context:
-            analysis_results["statistical_context"] = stats_context
+        # We no longer include persona descriptions or statistical context in the analysis results
         
         # Add statistical metrics and analysis ID if available
+        print(f"DEBUG analyze_conversation_pair: stats_json exists: {stats_json is not None}")
         if stats_json:
+            print(f"DEBUG analyze_conversation_pair: stats_json keys: {list(stats_json.keys()) if isinstance(stats_json, dict) else 'Not a dict'}")
             # Extract all metrics from the statistical analysis document
             metrics = {}
             for key in ["sentiment_analysis", "response_metrics", "word_frequency", "similarity_analysis"]:
@@ -796,7 +840,6 @@ class BiasAnalyzer:
                 baseline_response, 
                 persona_response, 
                 criteria_key,
-                stats_context,
                 stats_json,
                 question,
                 baseline_prompt,
@@ -818,66 +861,69 @@ class BiasAnalyzer:
         return analysis_results
     
     def _extract_stats_context(self, stats_results, baseline_id, persona_id):
-        """Extract statistical context for a specific conversation pair.
+        """Extract statistical metrics for a specific conversation pair.
         
         Args:
-            stats_results: Statistical analysis results
+            stats_results: Statistical analysis results (list of IDs or dictionaries)
             baseline_id: ID of the baseline conversation
             persona_id: ID of the persona conversation
             
         Returns:
             Tuple containing:
-                - Formatted string with statistical context (for human readability)
+                - None (previously contained human-readable context, now unused)
                 - JSON object with statistical metrics (for LLM processing)
                 - Statistical analysis ID (if available)
-                All can be None if no data is found
         """
-        stats_context_readable = []
-        stats_context_json = {
-            "sentiment": {},
-            "response_metrics": {},
-            "similarity": {},
-            "word_frequency": {}
-        }
         stats_id = None
+        stats_json = None
         
-        # Check if stats_results is a list of dictionaries
-        if isinstance(stats_results, list) and stats_results and isinstance(stats_results[0], dict):
-            # Find the matching statistical analysis
-            for result in stats_results:
-                if (result.get("baseline_conversation_id") == baseline_id and 
-                    result.get("persona_conversation_id") == persona_id):
-                    # Extract the ID
-                    if "_id" in result:
-                        stats_id = result["_id"]
-                        print(f"Found statistical analysis ID: {stats_id}")
-                    break
+        # Print debug info
+        print(f"DEBUG _extract_stats_context: stats_results type: {type(stats_results)}")
+        print(f"DEBUG _extract_stats_context: stats_results: {stats_results[:5] if isinstance(stats_results, list) else stats_results}")
         
-        # Extract sentiment analysis differences
-        if "sentiment_analysis" in stats_results and "differences" in stats_results["sentiment_analysis"]:
-            for diff in stats_results["sentiment_analysis"]["differences"]:
-                if diff.get("baseline_id") == baseline_id and diff.get("persona_id") == persona_id:
-                    sentiment_diff = diff.get("compound_diff", 0)
-                    direction = "more positive" if sentiment_diff > 0 else "more negative" if sentiment_diff < 0 else "the same"
-                    stats_context_readable.append(f"Sentiment: The persona response is {direction} than the baseline response "
-                                        f"(difference: {sentiment_diff:.2f})")
-                    
-                    # Add to JSON
-                    stats_context_json["sentiment"] = {
-                        "compound_diff": sentiment_diff,
-                        "direction": direction,
-                        "baseline_sentiment": diff.get("baseline_sentiment", 0),
-                        "persona_sentiment": diff.get("persona_sentiment", 0)
-                    }
-                    break
+        # First try to find the stats_id from the stats_results if they are dictionaries
+        if isinstance(stats_results, list) and stats_results:
+            # Check if the results are dictionaries or strings (IDs)
+            if stats_results and isinstance(stats_results[0], dict):
+                # Results are dictionaries, look for matching conversation IDs
+                for result in stats_results:
+                    if result.get("baseline_conversation_id") == baseline_id and result.get("persona_conversation_id") == persona_id:
+                        if "_id" in result:
+                            stats_id = result["_id"]
+                            print(f"Found statistical analysis ID in dict: {stats_id}")
+                            break
+            else:
+                # Results are likely IDs, try to load each one and check
+                for result_id in stats_results:
+                    if isinstance(result_id, str):
+                        try:
+                            # Try to load the file and check if it matches
+                            stats_file = os.path.join("db_files", "stats", f"{result_id}.json")
+                            if os.path.exists(stats_file):
+                                with open(stats_file, 'r', encoding='utf-8') as f:
+                                    stat = json.load(f)
+                                    if (stat.get("baseline_conversation_id") == baseline_id and
+                                        stat.get("persona_conversation_id") == persona_id):
+                                        stats_id = result_id
+                                        stats_json = stat
+                                        print(f"Found matching statistical analysis: {stats_id}")
+                                        break
+                        except Exception as e:
+                            print(f"Error checking statistical analysis {result_id}: {str(e)}")
         
-        # Format the context string
-        if stats_context_readable:
-            stats_context = "\n".join(stats_context_readable)
-        else:
-            stats_context = None
+        # If we found a stats_id but not the JSON, try to load the file
+        if stats_id and not stats_json:
+            try:
+                stats_file = os.path.join("db_files", "stats", f"{stats_id}.json")
+                if os.path.exists(stats_file):
+                    with open(stats_file, 'r', encoding='utf-8') as f:
+                        stats_json = json.load(f)
+                        print(f"Successfully loaded statistical analysis from {stats_file}")
+            except Exception as e:
+                print(f"Error loading statistical analysis file: {str(e)}")
         
-        return stats_context, stats_context_json, stats_id
+        # Return None for stats_context (to maintain backward compatibility), the stats JSON, and the stats ID
+        return None, stats_json, stats_id
     
     def _convert_objectid_to_str(self, obj):
         """Recursively ensure all ID fields are strings in a dictionary.
@@ -1045,8 +1091,39 @@ class BiasAnalyzer:
                                             if os.path.exists(stats_file):
                                                 with open(stats_file, 'r', encoding='utf-8') as f:
                                                     result = json.load(f)
-                                                    if result and (result.get('baseline_conversation_id') == baseline_conv_id and 
-                                                                  result.get('persona_conversation_id') == conv_id):
+                                                    # Get the IDs from the stats file
+                                                    baseline_id_in_stats = result.get('baseline_conversation_id')
+                                                    persona_id_in_stats = result.get('persona_conversation_id')
+                                                    
+                                                    # Check if the baseline ID matches, accounting for the 'conversation_' prefix
+                                                    # Case 1: Direct match
+                                                    # Case 2: baseline_id_in_stats has prefix, baseline_conv_id doesn't
+                                                    # Case 3: baseline_conv_id has prefix, baseline_id_in_stats doesn't
+                                                    baseline_match = (baseline_id_in_stats == baseline_conv_id or 
+                                                                     baseline_id_in_stats == f"conversation_{baseline_conv_id}" or
+                                                                     f"conversation_{baseline_id_in_stats}" == baseline_conv_id or
+                                                                     (baseline_id_in_stats and baseline_conv_id and 
+                                                                      baseline_id_in_stats.replace("conversation_", "") == baseline_conv_id) or
+                                                                     (baseline_id_in_stats and baseline_conv_id and 
+                                                                      baseline_id_in_stats == baseline_conv_id.replace("conversation_", "")))
+                                                    
+                                                    # Check if the persona ID matches, accounting for the 'conversation_' prefix
+                                                    # Case 1: Direct match
+                                                    # Case 2: persona_id_in_stats has prefix, conv_id doesn't
+                                                    # Case 3: conv_id has prefix, persona_id_in_stats doesn't
+                                                    persona_match = (persona_id_in_stats == conv_id or 
+                                                                   persona_id_in_stats == f"conversation_{conv_id}" or
+                                                                   f"conversation_{persona_id_in_stats}" == conv_id or
+                                                                   (persona_id_in_stats and conv_id and 
+                                                                    persona_id_in_stats.replace("conversation_", "") == conv_id) or
+                                                                   (persona_id_in_stats and conv_id and 
+                                                                    persona_id_in_stats == conv_id.replace("conversation_", "")))
+                                                    
+                                                    print(f"DEBUG: baseline_id_in_stats={baseline_id_in_stats}, baseline_conv_id={baseline_conv_id}")
+                                                    print(f"DEBUG: persona_id_in_stats={persona_id_in_stats}, conv_id={conv_id}")
+                                                    
+                                                    # Check if both IDs match
+                                                    if baseline_match and persona_match:
                                                         stat_id = result_id
                                                         print(f"Found statistical analysis ID for pair: {stat_id}")
                                                         break

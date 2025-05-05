@@ -757,7 +757,7 @@ def main():
             logger.info(f"Testing {len(new_prompt_ids)} newly generated prompts plus {len(baseline_prompt_ids)} corresponding baseline prompts")
             tester.new_conversation_ids = tester.test_prompts(prompts_to_test)
     
-    # Run statistical analysis
+    # Run statistical analysis if needed
     stats_data = {}
     if args.skip_stats:
         print("Skipping statistical analysis")
@@ -765,6 +765,26 @@ def main():
         # Run statistical analysis on all conversations
         logger.info("Running statistical analysis on all conversations due to --force-all flag")
         stats_data = tester.run_statistical_analysis()
+        
+        # Debug: Print the stats_data structure
+        logger.info(f"DEBUG: stats_data type: {type(stats_data)}")
+        logger.info(f"DEBUG: stats_data keys: {list(stats_data.keys()) if isinstance(stats_data, dict) else 'Not a dict'}")
+        if 'results' in stats_data:
+            logger.info(f"DEBUG: stats_data contains {len(stats_data['results'])} results")
+            logger.info(f"DEBUG: First few results: {stats_data['results'][:3]}")
+            for i, result in enumerate(stats_data['results'][:3]):
+                logger.info(f"DEBUG: Stats result {i} type: {type(result)}, value: {result}")
+                
+                # Try to load the statistical analysis file
+                try:
+                    stats_file = os.path.join("db_files", "stats", f"{result}.json")
+                    if os.path.exists(stats_file):
+                        logger.info(f"DEBUG: Stats file exists: {stats_file}")
+                        with open(stats_file, 'r', encoding='utf-8') as f:
+                            stat = json.load(f)
+                            logger.info(f"DEBUG: Stats file contents keys: {list(stat.keys())}")
+                except Exception as e:
+                    logger.error(f"DEBUG: Error loading stats file: {str(e)}")
     elif tester.new_conversation_ids:
         # Run statistical analysis on only the new conversations
         logger.info(f"Running statistical analysis on {len(tester.new_conversation_ids)} new conversations")
@@ -773,14 +793,6 @@ def main():
         )
     else:
         logger.warning("No new conversations for statistical analysis. Use --force-all to analyze existing conversations.")
-        # Debug: Print the stats_data structure
-        if stats_data:
-            logger.info(f"Stats data contains {len(stats_data.get('results', []))} results")
-            if 'results' in stats_data:
-                for i, result in enumerate(stats_data['results']):
-                    logger.info(f"Stats result {i} type: {type(result)}")
-                    if isinstance(result, str):
-                        logger.info(f"Stats result {i} is a string: {result}")
     
     # Run bias analysis
     analysis_ids = []
