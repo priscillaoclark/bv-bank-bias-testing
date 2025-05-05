@@ -17,10 +17,9 @@ This script is ideal for batch testing with multiple personas and products to id
 
 Before running the script, ensure you have:
 
-1. MongoDB running locally or a connection to a remote MongoDB instance
-2. Python 3.8+ installed
-3. Required Python packages installed (see `requirements.txt`)
-4. API keys configured in your `.env` file:
+1. Python 3.8+ installed
+2. Required Python packages installed (see `requirements.txt`)
+3. API keys configured in your `.env` file:
    - `GEMINI_API_KEY` for persona generation and bias analysis
    - Any keys required for the Aurora chatbot testing
 
@@ -189,17 +188,17 @@ When you run the script, it follows this process:
 1. **Persona Generation**:
    - Generates the specified number of personas using the PersonaGenerator
    - Applies diversity validation to ensure personas are sufficiently different
-   - Saves personas to MongoDB and local files
+   - Saves personas to local JSON files in the `db_files/personas` directory
 
 2. **Prompt Generation**:
    - For each persona, generates prompts for the specified number of products
    - Also generates baseline (non-persona specific) prompts for the same products
-   - Saves prompts to MongoDB and local files
+   - Saves prompts to local JSON files in the `db_files/prompts` directory
 
 3. **Chatbot Testing**:
    - Sends each prompt to the Aurora chatbot
    - Captures and stores the conversation
-   - Saves conversations to MongoDB and local files
+   - Saves conversations to local JSON files in the `db_files/convos` directory
 
 4. **Statistical Analysis**:
    - Analyzes conversation pairs using statistical methods
@@ -212,7 +211,7 @@ When you run the script, it follows this process:
    - Incorporates statistical context into the analysis
 
 6. **Results Storage**:
-   - Saves all analysis results to MongoDB and local files
+   - Saves all analysis results to local JSON files in the `db_files/results` directory
    - Generates unique IDs for all artifacts
 
 ## Output Files
@@ -264,11 +263,11 @@ This will create a log file at `logs/bias_test_run_test_run_001.log` with detail
 
 ### Common Issues
 
-1. **MongoDB Connection Errors**:
+1. **File Permission Errors**:
    ```
-   Error connecting to MongoDB: connection refused
+   Error writing to file: permission denied
    ```
-   **Solution**: Ensure MongoDB is running and the connection string in your `.env` file is correct.
+   **Solution**: Ensure you have write permissions to the `db_files` directory and its subdirectories.
 
 2. **API Key Errors**:
    ```
@@ -294,9 +293,9 @@ This will create a log file at `logs/bias_test_run_test_run_001.log` with detail
    - Add `--verbose` flag to see more detailed logs (if implemented)
    - Check the console output for specific error messages
 
-2. **Check MongoDB Collections**:
-   - Use MongoDB Compass to inspect the collections
-   - Verify that documents are being created correctly
+2. **Check JSON Files**:
+   - Examine the files in the `db_files` directory and its subdirectories
+   - Verify that JSON files are being created correctly with the expected data
 
 3. **Examine Local Files**:
    - Check the JSON files in the `db_files` directory
@@ -357,7 +356,7 @@ The bias testing system includes several related files:
 - `chatbot_tester.py`: Tests the Aurora chatbot with generated prompts
 - `statistical_bias_analyzer.py`: Performs statistical analysis of chatbot responses
 - `bias_analyzer.py`: Conducts qualitative bias analysis using Gemini
-- `clean_data.py`: Deletes all data from MongoDB collections and local files
+- `clean_data.py`: Deletes all data from local JSON files in the `db_files` directory
 - `generate_report.py`: Creates comprehensive text-based reports from analysis results
 
 ## Documentation

@@ -168,4 +168,4 @@ The statistical analysis is implemented in the `statistical_bias_analyzer.py` mo
 - **textstat**: For readability metrics calculation
 - **pandas/numpy**: For data manipulation and statistical calculations
 
-Results are stored in both MongoDB and local JSON files, and comprehensive reports can be generated using the `generate_report.py` script.
+Results are stored in local JSON files in the `db_files/stats` directory, and comprehensive reports can be generated using the `generate_report.py` script.

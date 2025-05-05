@@ -15,6 +15,7 @@ The Aurora Chatbot Bias Testing System is designed to systematically test and an
 - **Qualitative Bias Detection**: Uses AI to analyze conversation pairs for potential bias
 - **Comprehensive Reporting**: Generates detailed reports of bias analysis results
 - **Flexible Workflow**: Supports both focused (new data) and comprehensive (all data) testing scenarios
+- **Simple Storage**: Uses local JSON files for all data storage without external database dependencies
 
 ## System Architecture
 
@@ -33,6 +34,14 @@ The Aurora Chatbot Bias Testing System is designed to systematically test and an
 │ Generator       │     │ Analyzer        │     │ Bias Analyzer   │
 │                 │     │                 │     │                 │
 └─────────────────┘     └─────────────────┘     └─────────────────┘
+                              ▲
+                              │
+                      ┌───────┴───────┐
+                      │               │
+                      │  Local JSON   │
+                      │  Storage      │
+                      │               │
+                      └───────────────┘
 ```
 
 ## Getting Started
@@ -40,7 +49,6 @@ The Aurora Chatbot Bias Testing System is designed to systematically test and an
 ### Prerequisites
 
 - Python 3.8+
-- MongoDB (local or remote)
 - Google Gemini API key
 - Access to Aurora chatbot
 
@@ -65,7 +73,6 @@ Create a `.env` file with the following variables:
 
 ```
 GEMINI_API_KEY=your_gemini_api_key
-MONGODB_URI=your_mongodb_connection_string
 ```
 
 ### Basic Usage
@@ -125,6 +132,19 @@ Conducts qualitative analysis of potential bias:
 - Evaluates based on criteria like tone, personalization, depth of information
 - Incorporates statistical context into the analysis
 - Provides detailed explanations and examples
+
+### Data Storage
+
+The system uses local JSON files to store all data, organized in the `db_files` directory:
+
+- `db_files/personas`: Stores generated personas
+- `db_files/prompts`: Stores baseline and persona-specific prompts
+- `db_files/convos`: Stores conversation records from chatbot testing
+- `db_files/results`: Stores bias analysis results
+- `db_files/stats`: Stores statistical analysis results
+- `db_files/results/prompts`: Stores generated prompts for bias analysis
+
+This simple file-based storage approach eliminates the need for external database dependencies while maintaining all functionality.
 
 ### Report Generator
 
