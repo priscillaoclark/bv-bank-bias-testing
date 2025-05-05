@@ -1,53 +1,22 @@
 #!/usr/bin/env python
-"""
-Clean Data Script for Aurora Chatbot Testing
+"""Clean Data Script for Aurora Chatbot Testing
 
-This script deletes all data from MongoDB collections and local JSON files
-to provide a fresh start for testing the bias testing system.
+This script deletes all local JSON files to provide a fresh start for testing the bias testing system.
+This version uses only local JSON files (no MongoDB dependency).
 """
 
 import os
 import sys
 import shutil
-from typing import List
 from dotenv import load_dotenv
 
-# Add the current directory to the path so we can import from storage
+# Add the current directory to the path
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
-from storage.database import Database
 
 # Load environment variables
 load_dotenv()
 
-def clean_mongodb():
-    """Delete all data from MongoDB collections."""
-    try:
-        db = Database()
-        print("Connected to MongoDB successfully.")
-        
-        # Get the collections
-        collections = [
-            "personas_collection",
-            "prompts_collection", 
-            "conversations_collection", 
-            "test_results_collection",
-            "stats_collection"
-        ]
-        
-        # Delete all documents from each collection
-        for collection_name in collections:
-            if hasattr(db, collection_name):
-                collection = getattr(db, collection_name)
-                result = collection.delete_many({})
-                print(f"Deleted {result.deleted_count} documents from {collection_name}")
-            else:
-                print(f"Collection {collection_name} not found")
-        
-        print("MongoDB data cleaning completed.")
-        return True
-    except Exception as e:
-        print(f"Error cleaning MongoDB: {str(e)}")
-        return False
+
 
 def clean_local_files():
     """Delete all local JSON files and prompt text files."""
@@ -151,13 +120,10 @@ def main():
     print("Starting data cleaning process...")
     
     # Ask for confirmation
-    confirmation = input("This will delete ALL data from MongoDB and local files. Are you sure? (y/n): ")
+    confirmation = input("This will delete ALL data from local JSON files. Are you sure? (y/n): ")
     if confirmation.lower() != 'y':
         print("Operation cancelled.")
         return
-    
-    # Clean MongoDB
-    mongodb_cleaned = clean_mongodb()
     
     # Clean local files
     clean_local_files()

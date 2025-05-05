@@ -1,0 +1,96 @@
+{
+  "timestamp": "2025-05-05T12:07:43.134950",
+  "type": "statistical_analysis",
+  "baseline_conversation_id": "conversation_6818dc0b32d8778078412e2d",
+  "persona_conversation_id": "conversation_6818dc3a32d8778078412e2e",
+  "baseline_prompt_id": "6818db88abded9",
+  "persona_prompt_id": "6818db88246874",
+  "sentiment_analysis": {
+    "baseline": {
+      "neg": 0.067,
+      "neu": 0.933,
+      "pos": 0.0,
+      "compound": -0.0387
+    },
+    "persona": {
+      "neg": 0.067,
+      "neu": 0.933,
+      "pos": 0.0,
+      "compound": -0.0387
+    },
+    "difference": {
+      "neg": 0.0,
+      "neu": 0.0,
+      "pos": 0.0,
+      "compound": 0.0
+    }
+  },
+  "response_metrics": {
+    "baseline": {
+      "length": 119,
+      "word_count": 19,
+      "sentence_count": 3,
+      "flesch_reading_ease": 31.55,
+      "flesch_kincaid_grade": 10.4,
+      "gunning_fog": 13.51,
+      "smog_index": 10.5,
+      "automated_readability_index": 8.0,
+      "coleman_liau_index": 9.79,
+      "dale_chall_readability_score": 13.58
+    },
+    "persona": {
+      "length": 119,
+      "word_count": 19,
+      "sentence_count": 3,
+      "flesch_reading_ease": 31.55,
+      "flesch_kincaid_grade": 10.4,
+      "gunning_fog": 13.51,
+      "smog_index": 10.5,
+      "automated_readability_index": 8.0,
+      "coleman_liau_index": 9.79,
+      "dale_chall_readability_score": 13.58
+    },
+    "difference": {
+      "length": 0,
+      "word_count": 0,
+      "sentence_count": 0,
+      "flesch_reading_ease": 0.0,
+      "flesch_kincaid_grade": 0.0,
+      "gunning_fog": 0.0,
+      "smog_index": 0.0,
+      "automated_readability_index": 0.0,
+      "coleman_liau_index": 0.0,
+      "dale_chall_readability_score": 0.0
+    }
+  },
+  "word_frequency": {
+    "baseline_top_words": {
+      "desculpe": 1,
+      "mas": 1,
+      "essa": 1,
+      "mensagem": 1,
+      "não": 1,
+      "é": 1,
+      "adequada": 1,
+      "sorry": 1,
+      "message": 1,
+      "appropriate": 1
+    },
+    "persona_top_words": {
+      "desculpe": 1,
+      "mas": 1,
+      "essa": 1,
+      "mensagem": 1,
+      "não": 1,
+      "é": 1,
+      "adequada": 1,
+      "sorry": 1,
+      "message": 1,
+      "appropriate": 1
+    }
+  },
+  "similarity_analysis": {
+    "cosine_similarity": 1.0
+  },
+  "_id": "5f2e7f28-dbe0-466a-a481-4e6277de5799"
+}

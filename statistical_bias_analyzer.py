@@ -9,6 +9,7 @@ import os
 import sys
 import json
 import re
+import uuid
 import numpy as np
 import pandas as pd
 from typing import Dict, List, Any, Optional, Tuple
@@ -22,9 +23,9 @@ import textstat
 from datetime import datetime
 from dotenv import load_dotenv
 
-# Add the current directory to the path so we can import from storage
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from storage.database import Database
+# Add the current directory to the path so we can import our modules
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+from storage.json_database import JSONDatabase as Database
 
 # Load environment variables
 load_dotenv()
@@ -57,14 +58,8 @@ class StatisticalBiasAnalyzer:
     def __init__(self):
         """Initialize the StatisticalBiasAnalyzer."""
         # Initialize database connection
-        try:
-            self.db = Database()
-            self.mongodb_available = True
-            print("MongoDB connection available for statistical analysis.")
-        except Exception as e:
-            print(f"MongoDB connection failed: {str(e)}")
-            self.mongodb_available = False
-            print("Will save statistical analysis to local files only.")
+        self.db = Database()
+        print("Using JSON database for statistical analysis.")
         
         # Set up directories for local storage
         self.stats_dir = os.path.join("db_files", "stats")
@@ -311,7 +306,7 @@ class StatisticalBiasAnalyzer:
     
     def save_analysis_results(self, results: Dict[str, Any]) -> str:
         """
-        Save statistical analysis results to MongoDB and local file.
+        Save statistical analysis results to local JSON file.
         
         Args:
             results: Dictionary of statistical analysis results
@@ -334,30 +329,15 @@ class StatisticalBiasAnalyzer:
             **results
         }
         
-        # Save to MongoDB if available
-        analysis_id = None
-        if self.mongodb_available:
-            try:
-                # Create a dedicated stats collection if it doesn't exist
-                if not hasattr(self.db, 'stats_collection'):
-                    self.db.stats_collection = self.db.db["stats"]
-                    # Create an index on the timestamp field
-                    self.db.stats_collection.create_index("timestamp")
-                    print("Created stats collection in MongoDB")
-                
-                result = self.db.stats_collection.insert_one(analysis_doc)
-                analysis_id = str(result.inserted_id)
-                print(f"Statistical analysis stored in MongoDB stats collection with ID: {analysis_id}")
-            except Exception as e:
-                print(f"Error storing statistical analysis in MongoDB: {str(e)}")
+        # Generate a unique ID for the analysis
+        analysis_id = str(uuid.uuid4())
+        analysis_doc["_id"] = analysis_id
         
-        # Always save to local file
+        # Save to local file
         try:
-            # If we have an ID from MongoDB, use it for the local file
-            if analysis_id:
-                analysis_doc["_id"] = analysis_id
+            analysis_doc["_id"] = analysis_id
             
-            # Generate a file ID if we don't have one from MongoDB
+            # Generate a file ID if we don't have one
             if "_id" not in analysis_doc:
                 analysis_id = f"stat_analysis_{timestamp.replace(':', '-')}"
                 analysis_doc["_id"] = analysis_id

@@ -8,6 +8,7 @@ import sys
 import time
 import random
 import json
+import uuid
 from typing import Dict, List, Optional, Tuple, Any, Union
 from datetime import datetime
 from selenium import webdriver
@@ -29,38 +30,31 @@ except ImportError:
         def __str__(self):
             return self.id_str
 
-# Set up MongoDB and local file storage
+# Set up path for imports
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-# Flag to track if MongoDB is available
-mongodb_available = False
+# Import the JSONDatabase class
+from storage.json_database import JSONDatabase as Database
+print("Using JSON database for storage.")
 
-# Set up MongoDB connection through the Database class
-try:
-    # Import the Database class from the storage module
-    from storage.database import Database
-    mongodb_available = True
-    print("MongoDB connection available. Will save to both MongoDB and local files.")
-except ImportError:
-    print("Database module not found. Using local file storage only.")
-    mongodb_available = False
+# Create a Database class alias for backward compatibility
+class DatabaseLegacy:
+    """Database class that stores data in local JSON files."""
     
-    # Create a mock Database class if the real one is not available
-    class Database:
-        """Mock Database class that stores data in local JSON files."""
-        
-        def __init__(self):
-            self.db = {"conversations": self}
-        
-        def insert_one(self, document):
-            """Insert a document into the collection."""
-            doc_id = str(ObjectId())
-            document["_id"] = doc_id
-            return type('obj', (object,), {'inserted_id': doc_id})
-        
-        def close(self):
-            """Close the database connection."""
-            pass
+    def __init__(self):
+        self.db = {"conversations": self}
+        self.conversations_collection = self
+        self.local_storage = LocalStorage()
+    
+    def insert_one(self, document):
+        """Insert a document into the collection."""
+        doc_id = str(ObjectId())
+        document["_id"] = doc_id
+        return type('obj', (object,), {'inserted_id': doc_id})
+    
+    def close(self):
+        """Close the database connection."""
+        pass
 
 # Create a LocalStorage class for JSON file storage
 class LocalStorage:
@@ -113,28 +107,8 @@ class LocalStorage:
         
         return doc_id
 
-# If MongoDB is not available, create a mock Database class
-if not mongodb_available:
-    class Database:
-        """Mock Database class that stores data in local JSON files."""
-        
-        def __init__(self):
-            self.local_storage = LocalStorage()
-            self.db = {"conversations": self}
-        
-        def insert_one(self, document):
-            """Insert a document into the collection."""
-            doc_id = self.local_storage.save_conversation(document)
-            
-            class Result:
-                def __init__(self, inserted_id):
-                    self.inserted_id = inserted_id
-            
-            return Result(doc_id)
-        
-        def close(self):
-            """Close the database connection."""
-            pass
+# Database class is now imported from storage.database
+# Database class is now imported from storage.database as JSONDatabase
 
 # Load environment variables
 load_dotenv()
@@ -176,10 +150,10 @@ class LightweightChatbotTester:
         
         # Conversation state tracking
         self.conversation_history = []
-        self.conversation_id = None
+        self.conversation_id = str(uuid.uuid4())
         self.session_active = False
         
-        print(f"Initialized Lightweight Chatbot Tester for Aurora")
+        print(f"Initialized Lightweight Chatbot Tester for Aurora (using JSON database)")
     
     def initialize_browser(self):
         """Initialize the headless browser for testing."""
@@ -863,7 +837,7 @@ class LightweightChatbotTester:
     
     def store_conversation(self, prompt_id: Optional[str] = None) -> Optional[str]:
         """
-        Store the entire conversation in MongoDB and local JSON file.
+        Store the entire conversation in local JSON file.
         
         Args:
             prompt_id: Optional ID of the prompt that generated this conversation
@@ -885,77 +859,9 @@ class LightweightChatbotTester:
                 "model_info": {"model": "Aurora BV 2025"}
             }
             
-            # Store in MongoDB if available
-            doc_id = None
-            if mongodb_available:
-                try:
-                    # Print detailed connection information
-                    if hasattr(self.db, 'db_name'):
-                        print(f"MongoDB database name: {self.db.db_name}")
-                    if hasattr(self.db, 'mongo_uri'):
-                        # Use a more secure masking approach
-                        if hasattr(self.db, 'masked_uri'):
-                            # Use the pre-masked URI if available
-                            print(f"MongoDB URI: {self.db.masked_uri}")
-                        else:
-                            # Mask the URI ourselves if needed
-                            uri = self.db.mongo_uri
-                            if '@' in uri:
-                                protocol_part, rest = uri.split('://', 1)
-                                if '@' in rest:
-                                    credentials_part, host_part = rest.split('@', 1)
-                                    masked_uri = f"{protocol_part}://***:***@{host_part}"
-                                    print(f"MongoDB URI: {masked_uri}")
-                            else:
-                                # For URIs without credentials, show without sensitive info
-                                print(f"MongoDB URI: {uri}")
-                    
-                    # Check if we have access to the conversations_collection attribute
-                    if hasattr(self.db, 'conversations_collection'):
-                        print("Using conversations_collection attribute")
-                        # Get collection name
-                        if hasattr(self.db.conversations_collection, 'name'):
-                            print(f"Collection name: {self.db.conversations_collection.name}")
-                        # Use the conversations_collection attribute
-                        result = self.db.conversations_collection.insert_one(conversation_doc)
-                    else:
-                        print("Using db dictionary approach")
-                        # Fall back to the db dictionary approach
-                        result = self.db.db["conversations"].insert_one(conversation_doc)
-                    
-                    doc_id = str(result.inserted_id)
-                    print(f"Conversation stored in MongoDB database '{self.db.db_name if hasattr(self.db, 'db_name') else 'unknown'}' with ID: {doc_id}")
-                    
-                    # Verify the document was saved
-                    if hasattr(self.db, 'conversations_collection'):
-                        verify = self.db.conversations_collection.find_one({"_id": result.inserted_id})
-                        if verify:
-                            print("Document verified in MongoDB - it exists!")
-                        else:
-                            print("WARNING: Document not found in MongoDB after saving!")
-                except Exception as mongo_e:
-                    print(f"Error storing in MongoDB: {str(mongo_e).replace(self.db.mongo_uri if hasattr(self.db, 'mongo_uri') else '', '***:***@***')}")
-                    import traceback
-                    traceback.print_exc()
-            
-            # Always save to local file
-            try:
-                # If we have an ID from MongoDB, use it for the local file
-                if doc_id:
-                    conversation_doc["_id"] = doc_id
-                
-                # Save to local file
-                file_id = self.local_storage.save_conversation(conversation_doc)
-                
-                # If we didn't get an ID from MongoDB, use the local file ID
-                if not doc_id:
-                    doc_id = file_id
-                
-                print(f"Conversation saved to local file: db_files/convos/conversation_{file_id}.json")
-            except Exception as local_e:
-                print(f"Error saving to local file: {str(local_e)}")
-                if not doc_id:  # Only return None if we have no ID at all
-                    return None
+            # Store in database
+            doc_id = self.local_storage.save_conversation(conversation_doc)
+            print(f"Conversation saved to file: db_files/convos/{doc_id}.json")
             
             return doc_id
         except Exception as e:

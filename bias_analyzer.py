@@ -10,14 +10,15 @@ import os
 import sys
 import json
 import argparse
+import uuid
 from datetime import datetime
 from typing import Dict, List, Any, Optional, Tuple
 import google.generativeai as genai
 from dotenv import load_dotenv
 
-# Add the current directory to the path so we can import from storage
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from storage.database import Database
+# Add the current directory to the path so we can import our modules
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+from storage.json_database import JSONDatabase as Database
 
 # Load environment variables
 load_dotenv()
@@ -71,22 +72,8 @@ class BiasAnalyzer:
     def __init__(self):
         """Initialize the BiasAnalyzer."""
         # Initialize database connection
-        try:
-            self.db = Database()
-            self.mongodb_available = True
-            # Set up collection references
-            self.prompts_collection = self.db.prompts_collection if hasattr(self.db, 'prompts_collection') else None
-            self.conversations_collection = self.db.conversations_collection if hasattr(self.db, 'conversations_collection') else None
-            self.results_collection = self.db.results_collection if hasattr(self.db, 'results_collection') else None
-            print("MongoDB connection available. Will save analysis results to both MongoDB and local files.")
-        except Exception as e:
-            print(f"MongoDB connection not available: {str(e)}")
-            print("Will save analysis results to local files only.")
-            self.mongodb_available = False
-            self.db = None
-            self.prompts_collection = None
-            self.conversations_collection = None
-            self.results_collection = None
+        self.db = Database()
+        print("Using JSON database for storage.")
         
         # Create the db_files/results directory if it doesn't exist
         self.results_dir = os.path.join("db_files", "results")
@@ -96,10 +83,10 @@ class BiasAnalyzer:
         self.model = genai.GenerativeModel('gemini-1.5-pro')
     
     def load_conversation(self, conversation_id) -> Optional[Dict[str, Any]]:
-        """Load a conversation from MongoDB or local file.
+        """Load a conversation from local JSON file.
         
         Args:
-            conversation_id: ID of the conversation to load (can be string or ObjectId)
+            conversation_id: ID of the conversation to load
             
         Returns:
             Dictionary containing the conversation, or None if not found
@@ -109,38 +96,16 @@ class BiasAnalyzer:
             # Return the conversation object directly
             return conversation_id
         
-        # Try to load from MongoDB first
-        if self.mongodb_available:
-            try:
-                # Try with the ID as is
-                conversation = self.db.conversations_collection.find_one({"_id": conversation_id})
-                if conversation:
-                    return conversation
-                
-                # If that didn't work and it's a string, try with string ID
-                if isinstance(conversation_id, str):
-                    # Try direct lookup by string ID
-                    conversation = self.db.conversations_collection.find_one({"_id": conversation_id})
-                    if conversation:
-                        return conversation
-                    
-                    # Try lookup by conversation_id field
-                    conversation = self.db.conversations_collection.find_one({"conversation_id": conversation_id})
-                    if conversation:
-                        return conversation
-            except Exception as e:
-                print(f"Error loading conversation from MongoDB: {str(e)}")
-        
-        # If MongoDB failed or not available, try to load from local file
+        # Load from JSON files
         try:
             # Try the standard format first
-            file_path = os.path.join("db_files", "convos", f"conversation_{conversation_id}.json")
+            file_path = os.path.join("db_files", "convos", f"{conversation_id}.json")
             if os.path.exists(file_path):
                 with open(file_path, 'r', encoding='utf-8') as f:
                     return json.load(f)
                     
-            # If that didn't work, try without the 'conversation_' prefix
-            alt_file_path = os.path.join("db_files", "convos", f"{conversation_id}.json")
+            # Try with conversation_ prefix
+            alt_file_path = os.path.join("db_files", "convos", f"conversation_{conversation_id}.json")
             if os.path.exists(alt_file_path):
                 with open(alt_file_path, 'r', encoding='utf-8') as f:
                     return json.load(f)
@@ -151,7 +116,7 @@ class BiasAnalyzer:
         return None
         
     def load_prompt(self, prompt_id: str) -> Optional[Dict[str, Any]]:
-        """Load a prompt from MongoDB or local file.
+        """Load a prompt from local JSON file.
         
         Args:
             prompt_id: ID of the prompt to load
@@ -159,16 +124,7 @@ class BiasAnalyzer:
         Returns:
             Dictionary containing the prompt, or None if not found
         """
-        # Try to load from MongoDB first
-        if self.mongodb_available:
-            try:
-                prompt = self.db.prompts_collection.find_one({"_id": prompt_id})
-                if prompt:
-                    return prompt
-            except Exception as e:
-                print(f"Error loading prompt from MongoDB: {str(e)}")
-        
-        # If MongoDB failed or not available, try to load from local file
+        # Load from JSON files
         try:
             file_path = os.path.join("db_files", "prompts", f"{prompt_id}.json")
             if os.path.exists(file_path):
@@ -180,9 +136,6 @@ class BiasAnalyzer:
         print(f"Prompt not found: {prompt_id}")
         return None
     
-    def find_prompt_pairs(self) -> List[Dict[str, Any]]:
-        """Find pairs of baseline and persona-specific prompts."""
-        
     def find_baseline_prompt(self, question: str, language: str = None, product: str = None) -> Optional[Dict[str, Any]]:
         """Find a baseline prompt with the same question, language, and product.
         
@@ -194,40 +147,22 @@ class BiasAnalyzer:
         Returns:
             Dictionary containing the baseline prompt, or None if not found
         """
-        # Try to find from MongoDB first
-        if self.mongodb_available:
-            try:
-                # Build the query
-                query = {
-                    "question": question,
-                    "is_baseline": True
-                }
-                
-                # Add optional filters
-                if language:
-                    query["language"] = language
-                if product:
-                    query["product"] = product
-                    
-                # Find the prompt
-                prompt = self.db.prompts_collection.find_one(query)
-                if prompt:
-                    return prompt
-            except Exception as e:
-                print(f"Error finding baseline prompt from MongoDB: {str(e)}")
-        
-        # If MongoDB failed or not available, try to find from local files
         try:
             prompts_dir = os.path.join("db_files", "prompts")
-            if os.path.exists(prompts_dir):
-                # Get all prompt files
-                prompt_files = [f for f in os.listdir(prompts_dir) if f.endswith('.json')]
+            if not os.path.exists(prompts_dir):
+                print(f"Prompts directory not found: {prompts_dir}")
+                return None
                 
-                # Check each prompt file
-                for file_name in prompt_files:
-                    file_path = os.path.join(prompts_dir, file_name)
+            # Get all prompt files
+            prompt_files = [f for f in os.listdir(prompts_dir) if f.endswith('.json')]
+            
+            # Check each prompt file
+            for file_name in prompt_files:
+                file_path = os.path.join(prompts_dir, file_name)
+                try:
                     with open(file_path, 'r', encoding='utf-8') as f:
                         prompt = json.load(f)
+                        prompt['_id'] = os.path.splitext(file_name)[0]  # Use filename as ID
                         
                         # Check if this is a matching baseline prompt
                         if prompt.get("question") == question and prompt.get("is_baseline") == True:
@@ -238,8 +173,11 @@ class BiasAnalyzer:
                                 continue
                                 
                             return prompt
+                except Exception as e:
+                    print(f"Error reading prompt file {file_path}: {str(e)}")
+                    continue
         except Exception as e:
-            print(f"Error finding baseline prompt from local files: {str(e)}")
+            print(f"Error finding baseline prompt from files: {str(e)}")
         
         print(f"Baseline prompt not found for question: {question}")
         return None
@@ -253,31 +191,29 @@ class BiasAnalyzer:
         Returns:
             Dictionary containing the conversation, or None if not found
         """
-        # Try to find from MongoDB first
-        if self.mongodb_available:
-            try:
-                conversation = self.db.conversations_collection.find_one({"prompt_id": prompt_id})
-                if conversation:
-                    return conversation
-            except Exception as e:
-                print(f"Error finding conversation for prompt from MongoDB: {str(e)}")
-        
-        # If MongoDB failed or not available, try to find from local files
         try:
             convos_dir = os.path.join("db_files", "convos")
-            if os.path.exists(convos_dir):
-                # Get all conversation files
-                convo_files = [f for f in os.listdir(convos_dir) if f.endswith('.json')]
+            if not os.path.exists(convos_dir):
+                print(f"Conversations directory not found: {convos_dir}")
+                return None
                 
-                # Check each conversation file
-                for file_name in convo_files:
-                    file_path = os.path.join(convos_dir, file_name)
+            # Get all conversation files
+            convo_files = [f for f in os.listdir(convos_dir) if f.endswith('.json')]
+            
+            # Check each conversation file
+            for file_name in convo_files:
+                file_path = os.path.join(convos_dir, file_name)
+                try:
                     with open(file_path, 'r', encoding='utf-8') as f:
                         conversation = json.load(f)
+                        conversation['_id'] = os.path.splitext(file_name)[0]  # Use filename as ID
                         
                         # Check if this is a matching conversation
                         if conversation.get("prompt_id") == prompt_id:
                             return conversation
+                except Exception as e:
+                    print(f"Error reading conversation file {file_path}: {str(e)}")
+                    continue
         except Exception as e:
             print(f"Error finding conversation for prompt from local files: {str(e)}")
         
@@ -288,44 +224,54 @@ class BiasAnalyzer:
         """Find pairs of baseline and persona-specific prompts."""
         prompt_pairs = []
         
-        if self.mongodb_available:
-            try:
-                # Find all baseline prompts
-                baseline_prompts = list(self.db.prompts_collection.find({"is_baseline": True}))
-                
-                for baseline in baseline_prompts:
-                    # Convert ObjectId to string
-                    if '_id' in baseline and not isinstance(baseline['_id'], str):
-                        baseline['_id'] = str(baseline['_id'])
-                    
-                    # Find persona prompts with the same product and language
-                    persona_prompts = list(self.db.prompts_collection.find({
-                        "is_baseline": False,
-                        "product": baseline.get("product"),
-                        "language": baseline.get("language")
-                    }))
-                    
-                    # Convert ObjectId to string for all persona prompts
-                    for persona in persona_prompts:
-                        if '_id' in persona and not isinstance(persona['_id'], str):
-                            persona['_id'] = str(persona['_id'])
-                    
-                    # Add the pairs to the list
-                    for persona in persona_prompts:
-                        prompt_pairs.append({
-                            "baseline": baseline,
-                            "persona": persona,
-                            "product": baseline.get("product"),
-                            "language": baseline.get("language")
-                        })
-                
-                print(f"Found {len(prompt_pairs)} baseline-persona prompt pairs.")
+        try:
+            # Get all prompts from the JSON files
+            prompts_dir = os.path.join("db_files", "prompts")
+            if not os.path.exists(prompts_dir):
+                print(f"Prompts directory not found: {prompts_dir}")
                 return prompt_pairs
             
-            except Exception as mongo_e:
-                print(f"Error finding prompt pairs from MongoDB: {str(mongo_e)}")
+            # Get all prompt files
+            prompt_files = [f for f in os.listdir(prompts_dir) if f.endswith('.json')]
+            
+            # Load all prompts
+            all_prompts = []
+            for file_name in prompt_files:
+                file_path = os.path.join(prompts_dir, file_name)
+                try:
+                    with open(file_path, 'r', encoding='utf-8') as f:
+                        prompt = json.load(f)
+                        prompt['_id'] = os.path.splitext(file_name)[0]  # Use filename as ID
+                        all_prompts.append(prompt)
+                except Exception as e:
+                    print(f"Error loading prompt file {file_path}: {str(e)}")
+            
+            # Find baseline prompts
+            baseline_prompts = [p for p in all_prompts if p.get('is_baseline', False)]
+            
+            # For each baseline prompt, find matching persona prompts
+            for baseline in baseline_prompts:
+                # Find persona prompts with the same product and language
+                persona_prompts = [p for p in all_prompts if 
+                                  not p.get('is_baseline', False) and 
+                                  p.get('product') == baseline.get('product') and 
+                                  p.get('language') == baseline.get('language')]
+                
+                # Add the pairs to the list
+                for persona in persona_prompts:
+                    prompt_pairs.append({
+                        "baseline": baseline,
+                        "persona": persona,
+                        "product": baseline.get("product"),
+                        "language": baseline.get("language")
+                    })
+            
+            print(f"Found {len(prompt_pairs)} baseline-persona prompt pairs.")
+            return prompt_pairs
+        except Exception as e:
+            print(f"Error finding prompt pairs from JSON files: {str(e)}")
         
-        # If MongoDB is not available or there was an error, return an empty list
+        # If there was an error, return an empty list
         return []
     
     def find_conversation_pairs(self, skip_analyzed: bool = True) -> List[Dict[str, Any]]:
@@ -345,48 +291,84 @@ class BiasAnalyzer:
             persona_prompt_id = pair["persona"]["_id"]
             
             # Find conversations for these prompts
-            if self.mongodb_available:
-                try:
-                    # Find baseline conversation
-                    baseline_conv = self.db.conversations_collection.find_one({"prompt_id": baseline_prompt_id})
+            try:
+                # Find conversations from JSON files
+                convos_dir = os.path.join("db_files", "convos")
+                if not os.path.exists(convos_dir):
+                    print(f"Conversations directory not found: {convos_dir}")
+                    continue
+                
+                # Get all conversation files
+                convo_files = [f for f in os.listdir(convos_dir) if f.endswith('.json')]
+                
+                # Find baseline conversation
+                baseline_conv = None
+                for file_name in convo_files:
+                    file_path = os.path.join(convos_dir, file_name)
+                    try:
+                        with open(file_path, 'r', encoding='utf-8') as f:
+                            convo = json.load(f)
+                            if convo.get('prompt_id') == baseline_prompt_id:
+                                convo['_id'] = os.path.splitext(file_name)[0]  # Use filename as ID
+                                baseline_conv = convo
+                                break
+                    except Exception as e:
+                        print(f"Error loading conversation file {file_path}: {str(e)}")
+                
+                # Find persona conversation
+                persona_conv = None
+                for file_name in convo_files:
+                    file_path = os.path.join(convos_dir, file_name)
+                    try:
+                        with open(file_path, 'r', encoding='utf-8') as f:
+                            convo = json.load(f)
+                            if convo.get('prompt_id') == persona_prompt_id:
+                                convo['_id'] = os.path.splitext(file_name)[0]  # Use filename as ID
+                                persona_conv = convo
+                                break
+                    except Exception as e:
+                        print(f"Error loading conversation file {file_path}: {str(e)}")
+                
+                # If both conversations exist, check if they've already been analyzed
+                if baseline_conv and persona_conv:
+                    baseline_id = baseline_conv['_id']
+                    persona_id = persona_conv['_id']
                     
-                    # Find persona conversation
-                    persona_conv = self.db.conversations_collection.find_one({"prompt_id": persona_prompt_id})
-                    
-                    # If both conversations exist, check if they've already been analyzed
-                    if baseline_conv and persona_conv:
-                        # Convert ObjectId to string
-                        if '_id' in baseline_conv and not isinstance(baseline_conv['_id'], str):
-                            baseline_conv['_id'] = str(baseline_conv['_id'])
-                        if '_id' in persona_conv and not isinstance(persona_conv['_id'], str):
-                            persona_conv['_id'] = str(persona_conv['_id'])
-                        
-                        baseline_id = baseline_conv['_id']
-                        persona_id = persona_conv['_id']
-                        
-                        # Check if this pair has already been analyzed
-                        if skip_analyzed:
-                            existing_analysis = self.db.test_results_collection.find_one({
-                                "analysis_type": "bias_analysis",
-                                "baseline_conversation_id": baseline_id,
-                                "persona_conversation_id": persona_id
-                            })
+                    # Check if this pair has already been analyzed
+                    if skip_analyzed:
+                        # Look for existing analysis in test_results directory
+                        results_dir = os.path.join("db_files", "test_results")
+                        if os.path.exists(results_dir):
+                            existing_analysis = None
+                            for file_name in os.listdir(results_dir):
+                                if not file_name.endswith('.json'):
+                                    continue
+                                file_path = os.path.join(results_dir, file_name)
+                                try:
+                                    with open(file_path, 'r', encoding='utf-8') as f:
+                                        analysis = json.load(f)
+                                        if (analysis.get('analysis_type') == "bias_analysis" and
+                                            analysis.get('baseline_conversation_id') == baseline_id and
+                                            analysis.get('persona_conversation_id') == persona_id):
+                                            existing_analysis = analysis
+                                            break
+                                except Exception as e:
+                                    print(f"Error loading analysis file {file_path}: {str(e)}")
                             
                             if existing_analysis:
                                 print(f"Skipping already analyzed conversation pair: {baseline_id} and {persona_id}")
                                 continue
-                        
-                        conversation_pairs.append({
-                            "baseline_conversation": baseline_conv,
-                            "persona_conversation": persona_conv,
-                            "product": pair["product"],
-                            "language": pair["language"],
-                            "baseline_prompt_id": baseline_prompt_id,
-                            "persona_prompt_id": persona_prompt_id
-                        })
-                
-                except Exception as mongo_e:
-                    print(f"Error finding conversation pairs from MongoDB: {str(mongo_e)}")
+                    
+                    conversation_pairs.append({
+                        "baseline_conversation": baseline_conv,
+                        "persona_conversation": persona_conv,
+                        "product": pair["product"],
+                        "language": pair["language"],
+                        "baseline_prompt_id": baseline_prompt_id,
+                        "persona_prompt_id": persona_prompt_id
+                    })
+            except Exception as e:
+                print(f"Error finding conversation pairs from files: {str(e)}")
         
         print(f"Found {len(conversation_pairs)} baseline-persona conversation pairs.")
         return conversation_pairs
@@ -486,13 +468,7 @@ class BiasAnalyzer:
         # Try to get the prompt from the prompt_id
         if "prompt_id" in conversation:
             prompt_id = conversation["prompt_id"]
-            # Load the prompt from MongoDB
-            if self.mongodb_available and hasattr(self, 'prompts_collection') and self.prompts_collection is not None:
-                prompt_doc = self.prompts_collection.find_one({"_id": prompt_id})
-                if prompt_doc and "prompt" in prompt_doc:
-                    return prompt_doc["prompt"]
-            
-            # If not found in MongoDB, try to load from local file
+            # Load the prompt from local file
             prompt_file = os.path.join("db_files", "prompts", f"{prompt_id}.json")
             if os.path.exists(prompt_file):
                 try:
@@ -718,16 +694,17 @@ class BiasAnalyzer:
             stats_id = pair.get("statistical_analysis_id")
             print(f"Using statistical analysis ID from pair data: {stats_id}")
             
-            # Try to load the statistical analysis from MongoDB
-            if self.mongodb_available:
-                try:
-                    stats_doc = self.db.stats_collection.find_one({"_id": stats_id})
-                    if stats_doc:
-                        # Convert MongoDB document to serializable dict
-                        stats_json = self._convert_objectid_to_str(stats_doc)
+            # Try to load the statistical analysis from JSON file
+            try:
+                stats_file = os.path.join("db_files", "stats", f"{stats_id}.json")
+                if os.path.exists(stats_file):
+                    with open(stats_file, 'r', encoding='utf-8') as f:
+                        stats_doc = json.load(f)
+                        stats_doc['_id'] = stats_id  # Use filename as ID
+                        stats_json = stats_doc
                         print(f"Successfully loaded statistical analysis {stats_id}")
-                except Exception as e:
-                    print(f"Error loading statistical analysis {stats_id}: {str(e)}")
+            except Exception as e:
+                print(f"Error loading statistical analysis {stats_id}: {str(e)}")
         
         # If we don't have a stats_id yet, try to extract it from stats_data
         elif stats_data and "results" in stats_data:
@@ -737,21 +714,31 @@ class BiasAnalyzer:
                 persona_conv.get("_id")
             )
             
-        # If we still don't have a stats_id, try to find it in the database
-        if not stats_id and self.mongodb_available:
+        # If we still don't have a stats_id, try to find it in the JSON files
+        if not stats_id:
             try:
-                # Look for a statistical analysis for this conversation pair
-                stat = self.db.stats_collection.find_one({
-                    "baseline_conversation_id": baseline_conv.get("_id"),
-                    "persona_conversation_id": persona_conv.get("_id")
-                })
-                if stat:
-                    stats_id = stat.get("_id")
-                    # Convert MongoDB document to serializable dict
-                    stats_json = self._convert_objectid_to_str(stat)
-                    print(f"Found statistical analysis ID in database: {stats_id}")
+                # Look for a statistical analysis for this conversation pair in the stats directory
+                stats_dir = os.path.join("db_files", "stats")
+                if os.path.exists(stats_dir):
+                    for file_name in os.listdir(stats_dir):
+                        if not file_name.endswith('.json'):
+                            continue
+                        file_path = os.path.join(stats_dir, file_name)
+                        try:
+                            with open(file_path, 'r', encoding='utf-8') as f:
+                                stat = json.load(f)
+                                if (stat.get("baseline_conversation_id") == baseline_conv.get("_id") and
+                                    stat.get("persona_conversation_id") == persona_conv.get("_id")):
+                                    stats_id = os.path.splitext(file_name)[0]  # Use filename as ID
+                                    stat["_id"] = stats_id
+                                    stats_json = stat
+                                    print(f"Found statistical analysis ID in files: {stats_id}")
+                                    break
+                        except Exception as e:
+                            print(f"Error reading stats file {file_path}: {str(e)}")
+                            continue
             except Exception as e:
-                print(f"Error finding statistical analysis in database: {str(e)}")
+                print(f"Error finding statistical analysis in files: {str(e)}")
         
         # Analyze bias for each criteria
         analysis_results = {
@@ -893,27 +880,26 @@ class BiasAnalyzer:
         return stats_context, stats_context_json, stats_id
     
     def _convert_objectid_to_str(self, obj):
-        """Recursively convert MongoDB ObjectId objects to strings in a dictionary.
+        """Recursively ensure all ID fields are strings in a dictionary.
         
         Args:
             obj: The object to convert (dict, list, or other value)
             
         Returns:
-            The object with ObjectId objects converted to strings
+            The object with all ID fields as strings
         """
-        from bson import ObjectId
-        
         if isinstance(obj, dict):
+            # Convert _id to string if it exists
+            if '_id' in obj and obj['_id'] is not None and not isinstance(obj['_id'], str):
+                obj['_id'] = str(obj['_id'])
             return {k: self._convert_objectid_to_str(v) for k, v in obj.items()}
         elif isinstance(obj, list):
             return [self._convert_objectid_to_str(item) for item in obj]
-        elif isinstance(obj, ObjectId):
-            return str(obj)
         else:
             return obj
     
     def save_analysis(self, analysis: Dict[str, Any]) -> str:
-        """Save an analysis to MongoDB results collection and local file.
+        """Save an analysis to local JSON file.
         
         Args:
             analysis: Analysis results
@@ -921,45 +907,29 @@ class BiasAnalyzer:
         Returns:
             ID of the saved analysis
         """
-        analysis_id = None
+        # Add timestamp if not present
+        if "timestamp" not in analysis:
+            analysis["timestamp"] = datetime.now().isoformat()
         
-        # Save to MongoDB if available
-        if self.mongodb_available:
-            try:
-                # Add analysis type to identify this as a bias analysis in the results collection
-                analysis["analysis_type"] = "bias_analysis"
-                
-                # Store in the results collection
-                result = self.db.test_results_collection.insert_one(analysis)
-                analysis_id = str(result.inserted_id)
-                print(f"Analysis stored in MongoDB results collection with ID: {analysis_id}")
-            except Exception as mongo_e:
-                print(f"Error storing analysis in MongoDB: {str(mongo_e)}")
+        # Generate an ID if not present
+        if "_id" not in analysis:
+            analysis["_id"] = str(uuid.uuid4())
         
-        # Always save to local file
+        # Save to local file
         try:
-            # Use MongoDB ID if available, otherwise generate a timestamp-based ID
-            if not analysis_id:
-                analysis_id = f"analysis_{datetime.now().strftime('%Y%m%d%H%M%S')}"
+            # Create the results directory if it doesn't exist
+            os.makedirs(self.results_dir, exist_ok=True)
             
-            # Create a copy of the analysis with the ID
-            analysis_with_id = analysis.copy()
-            analysis_with_id["_id"] = analysis_id
-            
-            # Convert any ObjectId objects to strings for JSON serialization
-            serializable_analysis = self._convert_objectid_to_str(analysis_with_id)
-            
-            # Save to local file in the results directory
-            file_path = os.path.join(self.results_dir, f"bias_analysis_{analysis_id}.json")
+            # Save to file
+            file_path = os.path.join(self.results_dir, f"bias_analysis_{analysis['_id']}.json")
             with open(file_path, 'w', encoding='utf-8') as f:
-                json.dump(serializable_analysis, f, indent=2, ensure_ascii=False)
+                json.dump(analysis, f, indent=2, ensure_ascii=False)
             
             print(f"Analysis saved to local file: {file_path}")
-            return analysis_id
-            
-        except Exception as file_e:
-            print(f"Error saving analysis to local file: {str(file_e)}")
-            return analysis_id if analysis_id else None
+            return analysis["_id"]
+        except Exception as e:
+            print(f"Error saving analysis to local file: {str(e)}")
+            return None
     
     def analyze_all_conversation_pairs(self, force_all: bool = False, 
                                        stats_data: Optional[Dict[str, Any]] = None,
@@ -1069,17 +1039,20 @@ class BiasAnalyzer:
                                 # We need to load each one to find the matching pair
                                 for result_id in stats_data['results']:
                                     if isinstance(result_id, str):
-                                        # Try to load the statistical analysis from MongoDB
-                                        if self.mongodb_available:
-                                            try:
-                                                result = self.db.stats_collection.find_one({"_id": result_id})
-                                                if result and (result.get('baseline_conversation_id') == baseline_conv_id and 
-                                                              result.get('persona_conversation_id') == conv_id):
-                                                    stat_id = result_id
-                                                    print(f"Found statistical analysis ID for pair: {stat_id}")
-                                                    break
-                                            except Exception as e:
-                                                print(f"Error loading statistical analysis {result_id}: {str(e)}")
+                                        # Try to load the statistical analysis from JSON file
+                                        try:
+                                            stats_file = os.path.join("db_files", "stats", f"{result_id}.json")
+                                            if os.path.exists(stats_file):
+                                                with open(stats_file, 'r', encoding='utf-8') as f:
+                                                    result = json.load(f)
+                                                    if result and (result.get('baseline_conversation_id') == baseline_conv_id and 
+                                                                  result.get('persona_conversation_id') == conv_id):
+                                                        stat_id = result_id
+                                                        print(f"Found statistical analysis ID for pair: {stat_id}")
+                                                        break
+                                        except Exception as e:
+                                            print(f"Error loading statistical analysis {result_id}: {str(e)}")
+
                             
                             # Add to pairs to analyze
                             pair_data = {
@@ -1137,16 +1110,25 @@ class BiasAnalyzer:
             ID of the saved analysis, or None if analysis failed
         """
         # Check if this pair has already been analyzed
-        if not force and self.mongodb_available:
-            existing_analysis = self.db.test_results_collection.find_one({
-                "analysis_type": "bias_analysis",
-                "baseline_conversation_id": baseline_id,
-                "persona_conversation_id": persona_id
-            })
-            
-            if existing_analysis:
-                print(f"This conversation pair has already been analyzed. Use force=True to analyze again.")
-                return str(existing_analysis.get("_id"))
+        if not force:
+            # Look for existing analysis in test_results directory
+            results_dir = os.path.join("db_files", "test_results")
+            if os.path.exists(results_dir):
+                for file_name in os.listdir(results_dir):
+                    if not file_name.endswith('.json'):
+                        continue
+                    file_path = os.path.join(results_dir, file_name)
+                    try:
+                        with open(file_path, 'r', encoding='utf-8') as f:
+                            analysis = json.load(f)
+                            if (analysis.get('analysis_type') == "bias_analysis" and
+                                analysis.get('baseline_conversation_id') == baseline_id and
+                                analysis.get('persona_conversation_id') == persona_id):
+                                print(f"This conversation pair has already been analyzed. Use force=True to analyze again.")
+                                return os.path.splitext(file_name)[0]  # Use filename as ID
+                    except Exception as e:
+                        print(f"Error reading analysis file {file_path}: {str(e)}")
+                        continue
         
         # Load the conversations
         baseline_conv = self.load_conversation(baseline_id)
@@ -1168,12 +1150,28 @@ class BiasAnalyzer:
         baseline_prompt = None
         persona_prompt = None
         
-        if self.mongodb_available:
-            try:
-                baseline_prompt = self.db.prompts_collection.find_one({"_id": baseline_prompt_id})
-                persona_prompt = self.db.prompts_collection.find_one({"_id": persona_prompt_id})
-            except Exception as e:
-                print(f"Error loading prompts from MongoDB: {str(e)}")
+        try:
+            # Load prompts from JSON files
+            prompts_dir = os.path.join("db_files", "prompts")
+            if not os.path.exists(prompts_dir):
+                print(f"Prompts directory not found: {prompts_dir}")
+                return None
+                
+            # Load baseline prompt
+            baseline_prompt_file = os.path.join(prompts_dir, f"{baseline_prompt_id}.json")
+            if os.path.exists(baseline_prompt_file):
+                with open(baseline_prompt_file, 'r', encoding='utf-8') as f:
+                    baseline_prompt = json.load(f)
+                    baseline_prompt['_id'] = baseline_prompt_id
+            
+            # Load persona prompt
+            persona_prompt_file = os.path.join(prompts_dir, f"{persona_prompt_id}.json")
+            if os.path.exists(persona_prompt_file):
+                with open(persona_prompt_file, 'r', encoding='utf-8') as f:
+                    persona_prompt = json.load(f)
+                    persona_prompt['_id'] = persona_prompt_id
+        except Exception as e:
+            print(f"Error loading prompts from files: {str(e)}")
         
         if not baseline_prompt or not persona_prompt:
             print(f"Could not load one or both prompts: {baseline_prompt_id} and {persona_prompt_id}")

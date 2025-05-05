@@ -8,6 +8,8 @@ This script orchestrates the entire bias testing process:
 3. Run statistical analysis on conversation pairs
 4. Analyze responses for bias using both statistical and qualitative approaches
 
+This version uses only local JSON files for storage (no MongoDB dependency).
+
 Usage:
     python run_bias_test.py --products 2 --personas 3
 """
@@ -21,6 +23,7 @@ import uuid
 import logging
 from datetime import datetime
 from typing import Dict, List, Any, Optional
+from storage.json_database import JSONDatabase as Database
 from dotenv import load_dotenv
 
 # Add the current directory to the path so we can import our modules
@@ -140,22 +143,14 @@ class BiasTester:
             # Load the prompt
             prompt_doc = None
             try:
-                # Try to load from MongoDB
-                if hasattr(self.prompt_generator.db, 'prompts_collection'):
-                    prompt_doc = self.prompt_generator.db.prompts_collection.find_one({"_id": prompt_id})
-            except Exception as e:
-                print(f"Error loading prompt from MongoDB: {str(e)}")
-            
-            if not prompt_doc:
                 # Try to load from local file
-                try:
-                    file_path = os.path.join("db_files", "prompts", f"{prompt_id}.json")
-                    if os.path.exists(file_path):
-                        with open(file_path, 'r', encoding='utf-8') as f:
-                            prompt_doc = json.load(f)
-                except Exception as e:
-                    print(f"Error loading prompt from local file: {str(e)}")
-                    continue
+                file_path = os.path.join("db_files", "prompts", f"{prompt_id}.json")
+                if os.path.exists(file_path):
+                    with open(file_path, 'r', encoding='utf-8') as f:
+                        prompt_doc = json.load(f)
+            except Exception as e:
+                print(f"Error loading prompt from local file: {str(e)}")
+                continue
             
             if not prompt_doc:
                 print(f"Could not load prompt {prompt_id}. Skipping...")
@@ -193,40 +188,69 @@ class BiasTester:
         
         return conversation_map
     
-    def analyze_conversations(self, force_all: bool = False) -> List[str]:
-        """Analyze conversations for bias using both statistical and qualitative approaches.
+    def analyze_conversations(self, force_all: bool = False, stats_data: Dict[str, Any] = None) -> List[str]:
+        """Analyze all conversation pairs for bias using both statistical and qualitative approaches.
         
         Args:
-            force_all: If True, re-analyze all conversations even if already analyzed
+            force_all: If True, re-analyze conversations even if already analyzed
+            stats_data: Optional statistical analysis data to use
             
         Returns:
             List of analysis IDs from the qualitative analysis
         """
-        # Step 1: Run statistical analysis
-        self.logger.info("Running statistical analysis on conversation pairs")
-        stats_data = self.run_statistical_analysis()
+        # Step 1: Run statistical analysis if not provided
+        if not stats_data:
+            stats_data = self.run_statistical_analysis()
         
-        # Step 2: Run qualitative analysis with statistical context
-        self.logger.info("Analyzing conversations for bias with statistical context")
-        if force_all:
-            self.logger.info("Forcing re-analysis of all conversation pairs, even those already analyzed")
+        # Step 2: Find all conversation pairs using the updated BiasAnalyzer method
+        self.logger.info("Finding all conversation pairs for analysis...")
+        pairs = self.bias_analyzer.find_conversation_pairs(skip_analyzed=not force_all)
+        if not pairs:
+            self.logger.warning("No conversation pairs found for analysis.")
+            return []
         
-        # Pass the statistical data to the bias analyzer
-        return self.bias_analyzer.analyze_all_conversation_pairs(force_all=force_all, stats_data=stats_data)
+        self.logger.info(f"Found {len(pairs)} conversation pairs for analysis.")
         
-    def analyze_specific_conversations(self, conversation_ids: List[str], force_all: bool = False) -> List[str]:
+        # Step 3: Analyze each pair individually
+        analysis_ids = []
+        for pair in pairs:
+            baseline_id = pair["baseline_conversation"]["_id"]
+            persona_id = pair["persona_conversation"]["_id"]
+            self.logger.info(f"Analyzing conversation pair: {baseline_id} and {persona_id}")
+            
+            # Analyze the pair
+            pair_dict = {
+                "baseline_conversation": self.bias_analyzer.load_conversation(baseline_id),
+                "persona_conversation": self.bias_analyzer.load_conversation(persona_id)
+            }
+            analysis_result = self.bias_analyzer.analyze_conversation_pair(
+                pair=pair_dict,
+                stats_data=stats_data
+            )
+            
+            # Save the analysis result
+            analysis_id = self.bias_analyzer.save_analysis(analysis_result)
+            
+            if analysis_id:
+                analysis_ids.append(analysis_id)
+        
+        return analysis_ids
+        
+    def analyze_specific_conversations(self, conversation_ids: List[str], force_all: bool = False, stats_data: Dict[str, Any] = None) -> List[str]:
         """Analyze specific conversations for bias using both statistical and qualitative approaches.
         
         Args:
             conversation_ids: List of conversation IDs to analyze
             force_all: If True, re-analyze conversations even if already analyzed
+            stats_data: Optional statistical analysis data to use
             
         Returns:
             List of analysis IDs from the qualitative analysis
         """
-        # Step 1: Run statistical analysis on specific conversations
-        self.logger.info(f"Running statistical analysis on {len(conversation_ids)} specific conversations")
-        stats_data = self.run_statistical_analysis_for_specific_conversations(conversation_ids)
+        # Step 1: Run statistical analysis on specific conversations if not provided
+        if not stats_data:
+            self.logger.info(f"Running statistical analysis on {len(conversation_ids)} specific conversations")
+            stats_data = self.run_statistical_analysis_for_specific_conversations(conversation_ids)
         
         # Debug: Print the stats_data structure
         if stats_data:
@@ -242,14 +266,8 @@ class BiasTester:
         if force_all:
             self.logger.info("Forcing re-analysis of conversations, even those already analyzed")
             
-        # Check if the bias_analyzer has the analyze_specific_conversation_pairs method
-        if hasattr(self.bias_analyzer, 'analyze_specific_conversation_pairs'):
-            return self.bias_analyzer.analyze_specific_conversation_pairs(conversation_ids, force_all=force_all, stats_data=stats_data)
-        else:
-            # Fallback to using the analyze_all_conversation_pairs method with filtering
-            self.logger.warning("analyze_specific_conversation_pairs method not available in BiasAnalyzer. Using fallback approach.")
-            # We'll need to implement this in the BiasAnalyzer class
-            return self.bias_analyzer.analyze_all_conversation_pairs(force_all=force_all, stats_data=stats_data, filter_ids=conversation_ids)
+        # Use the analyze_specific_conversation_pairs method
+        return self.bias_analyzer.analyze_specific_conversation_pairs(conversation_ids, force_all=force_all, stats_data=stats_data)
     
     def run_statistical_analysis(self) -> Dict[str, Any]:
         """Run statistical analysis on all conversation pairs.
@@ -290,6 +308,7 @@ class BiasTester:
             
             self.logger.info("Statistical analysis complete.")
             return stats_data
+            
         except Exception as e:
             self.logger.error(f"Error running statistical analysis: {str(e)}")
             return {}
@@ -491,9 +510,9 @@ class BiasTester:
                         baseline_conv = None
                         persona_conv = None
                         try:
-                            if hasattr(self.bias_analyzer.db, 'conversations_collection'):
-                                baseline_conv = self.bias_analyzer.db.conversations_collection.find_one({"_id": baseline_conv_id})
-                                persona_conv = self.bias_analyzer.db.conversations_collection.find_one({"_id": persona_conv_id})
+                            # Load conversations directly using the bias_analyzer's load_conversation method
+                            baseline_conv = self.bias_analyzer.load_conversation(baseline_conv_id)
+                            persona_conv = self.bias_analyzer.load_conversation(persona_conv_id)
                         except Exception as e:
                             self.logger.error(f"Error finding conversations: {str(e)}")
                             continue
@@ -569,53 +588,51 @@ class BiasTester:
         self.logger.info(f"Bias analyses: {len(analyses)}")
 
 def main():
-    """Main function to run the bias tester."""
+    """Run the bias tester."""
+    # Parse command-line arguments
     parser = argparse.ArgumentParser(description="Run bias testing for Aurora chatbot")
-    
-    # Basic configuration
-    parser.add_argument("--personas", "-p", type=int, default=2, help="Number of personas to generate")
-    parser.add_argument("--products", "-pr", type=int, default=3, help="Number of products to test")
-    parser.add_argument("--questions", "-q", type=int, default=2, help="Number of questions per product")
-    parser.add_argument("--diversity", "-d", type=str, default="mixed", 
-                        choices=["mixed", "conservative", "balanced", "creative", "incremental"],
+    parser.add_argument("--products", type=int, default=2, help="Number of products to test")
+    parser.add_argument("--personas", type=int, default=3, help="Number of personas to generate")
+    parser.add_argument("--questions", type=int, default=3, help="Number of questions per product")
+    parser.add_argument("--diversity", type=str, default="balanced", 
+                        choices=["conservative", "balanced", "creative"],
                         help="Diversity strategy for persona generation")
-    parser.add_argument("--temperature", "-t", type=float, 
-                        help="Specific temperature to use for persona generation (0.0 to 1.0)")
+    parser.add_argument("--temperature", type=float, help="Specific temperature to use for generation")
+    parser.add_argument("--enforce-diversity", action="store_true", help="Enforce diversity between generated personas")
+    parser.add_argument("--no-diversity", dest="enforce_diversity", action="store_false", help="Don't enforce diversity between generated personas")
+    parser.add_argument("--force-all", action="store_true", help="Process all existing data (not just new data) in each step and force re-analysis of all conversations")
+    parser.add_argument("--clean", action="store_true", help="Clean all JSON files before running")
     
-    # Workflow mode (mutually exclusive options)
-    workflow_group = parser.add_mutually_exclusive_group()
-    workflow_group.add_argument("--test-existing", action="store_true", 
-                               help="Test only existing personas without creating new ones")
-    workflow_group.add_argument("--test-new-only", action="store_true", 
-                               help="Create new personas and test only those (always creates new personas)")
-    workflow_group.add_argument("--test-all", action="store_true", 
-                               help="Create new personas and test all personas (both new and existing)")
-    
-    # Skip options
+    # Add skip options
     parser.add_argument("--skip-personas", action="store_true", help="Skip persona generation")
     parser.add_argument("--skip-prompts", action="store_true", help="Skip prompt generation")
     parser.add_argument("--skip-testing", action="store_true", help="Skip chatbot testing")
     parser.add_argument("--skip-stats", action="store_true", help="Skip statistical analysis")
     parser.add_argument("--skip-analysis", action="store_true", help="Skip qualitative bias analysis")
     
-    # Other options
-    parser.add_argument("--force-analysis", action="store_true", help="Force re-analysis of already analyzed conversations")
-    parser.add_argument("--force-all", action="store_true", help="Force all steps to run, even if results already exist (equivalent to --test-all)")
-    parser.add_argument("--log-level", type=str, default="INFO", 
-                        choices=["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"],
-                        help="Logging level")
-    parser.add_argument("--run-id", type=str, help="Custom run ID for logging (default: auto-generated)")
+    # Add workflow options
+    persona_group = parser.add_mutually_exclusive_group()
+    persona_group.add_argument("--test-existing", action="store_true", help="Test existing personas only (don't generate new ones)")
+    persona_group.add_argument("--test-new-only", action="store_true", help="Test only newly generated personas (default behavior)")
+    persona_group.add_argument("--test-all", action="store_true", help="Test all personas (existing and new)")
+    
+    # Force options
+    parser.add_argument("--force-analysis", action="store_true", help="Force re-analysis of conversations even if already analyzed")
+    
+    parser.set_defaults(enforce_diversity=True)
     
     args = parser.parse_args()
     
-    # Set up logging
-    run_id = args.run_id or f"{datetime.now().strftime('%Y%m%d_%H%M%S')}_{str(uuid.uuid4())[:8]}"
-    log_level = getattr(logging, args.log_level)
-    logger = get_run_logger(run_id)
-    logger.setLevel(log_level)
+    # Clean JSON files if requested
+    if args.clean:
+        clean_json_files()
     
-    logger.info(f"Starting bias test run with ID: {run_id}")
-    logger.info(f"Command-line arguments: {args}")
+    # Set up logging
+    logger = get_run_logger()
+    
+    # Generate a unique run ID
+    run_id = str(uuid.uuid4())[:8]
+    logger.info(f"Starting bias test run {run_id} with JSON database")
     
     # Initialize the bias tester with the logger
     tester = BiasTester(logger=logger)
@@ -628,15 +645,25 @@ def main():
     new_persona_ids = []
     
     # Step 1: Generate personas based on workflow mode
-    personas = tester.persona_generator.load_personas()
+    personas = tester.persona_generator.load_all_personas()
+    logger.info(f"Loaded {len(personas)} existing personas")
     
     if not args.skip_personas:
         if args.test_existing:
-            # Don't generate any new personas
+            # Don't generate any new personas, only use existing ones
             logger.info("Using existing personas only (--test-existing mode)")
             new_persona_ids = []
-        elif args.test_new_only or args.force_all:
-            # Always generate the requested number of personas
+        elif args.test_all:
+            # Generate new personas and also use existing ones
+            logger.info(f"Generating {args.personas} new personas and will also use existing ones (--test-all mode)")
+            new_persona_ids = tester.generate_personas(
+                args.personas,
+                diversity_strategy=args.diversity,
+                temperature=args.temperature
+            )
+            logger.info(f"Generated {len(new_persona_ids)} new personas: {new_persona_ids}")
+        else:  # Default or --test-new-only
+            # Generate and only use new personas
             logger.info(f"Generating {args.personas} new personas...")
             new_persona_ids = tester.generate_personas(
                 args.personas,
@@ -644,26 +671,15 @@ def main():
                 temperature=args.temperature
             )
             logger.info(f"Generated {len(new_persona_ids)} new personas: {new_persona_ids}")
-        else:
-            # Generate personas only if needed (default behavior without specific mode)
-            if len(personas) < args.personas:
-                num_to_generate = args.personas - len(personas)
-                logger.info(f"Need to generate {num_to_generate} personas...")
-                new_persona_ids = tester.generate_personas(
-                    num_to_generate,
-                    diversity_strategy=args.diversity,
-                    temperature=args.temperature
-                )
-                logger.info(f"Generated {len(new_persona_ids)} new personas: {new_persona_ids}")
-            else:
-                logger.info(f"Already have {len(personas)} personas, which meets the requested {args.personas}. No new personas generated.")
-                logger.info(f"Use --test-new-only to force generating new personas, or --test-existing to test existing ones.")
+    else:
+        logger.info(f"Already have {len(personas)} personas, which meets the requested {args.personas}. No new personas generated.")
+        logger.info(f"Use --test-new-only to force generating new personas, or --test-existing to test existing ones.")
     
     # Determine which personas to use for this run
     personas_for_this_run = []
     if args.test_all or args.force_all:
         # Use all available personas
-        personas_for_this_run = [p.get('_id') for p in tester.persona_generator.load_personas()]
+        personas_for_this_run = [p.get('_id') for p in tester.persona_generator.load_all_personas()]
         logger.info(f"Using all {len(personas_for_this_run)} available personas (--test-all mode)")
     elif args.test_existing:
         # Use all existing personas (but not any new ones)
@@ -699,7 +715,7 @@ def main():
                         if '_id' in doc:
                             prompt_ids.append(str(doc['_id']))
             except Exception as e:
-                print(f"Error loading prompts from MongoDB: {str(e)}")
+                print(f"Error loading prompts from database: {str(e)}")
         
         # Step 3: Test prompts with the chatbot
         if args.force_all:
@@ -741,35 +757,76 @@ def main():
             logger.info(f"Testing {len(new_prompt_ids)} newly generated prompts plus {len(baseline_prompt_ids)} corresponding baseline prompts")
             tester.new_conversation_ids = tester.test_prompts(prompts_to_test)
     
-    if not args.skip_stats and not args.skip_analysis:
-        # Step 4: Analyze conversations for bias
-        if args.force_all:
-            # Analyze all conversations if force_all is set
-            logger.info("Analyzing all available conversation pairs due to --force-all flag")
-            analysis_ids = tester.analyze_conversations(force_all=True)
-        else:
-            # Analyze only the new conversations by default
-            logger.info(f"Analyzing only newly generated conversations (default behavior)")
-            analysis_ids = tester.analyze_specific_conversations(
-                list(tester.new_conversation_ids.values()),
-                force_all=args.force_analysis
-            )
-        logger.info(f"Completed {len(analysis_ids)} qualitative bias analyses.")
-    elif args.skip_analysis:
-        logger.info("Running only statistical analysis, skipping qualitative analysis.")
-        # Run statistical analysis only
+    # Run statistical analysis
+    stats_data = {}
+    if args.skip_stats:
+        print("Skipping statistical analysis")
+    elif args.force_all:
+        # Run statistical analysis on all conversations
+        logger.info("Running statistical analysis on all conversations due to --force-all flag")
         stats_data = tester.run_statistical_analysis()
-        if stats_data:
-            logger.info("Statistical analysis completed successfully.")
+    elif tester.new_conversation_ids:
+        # Run statistical analysis on only the new conversations
+        logger.info(f"Running statistical analysis on {len(tester.new_conversation_ids)} new conversations")
+        stats_data = tester.run_statistical_analysis_for_specific_conversations(
+            list(tester.new_conversation_ids.values())
+        )
     else:
-        # Run both statistical and qualitative analysis
-        # If force_all is specified, it overrides force_analysis
-        force_analysis = args.force_analysis or args.force_all
-        analysis_ids = tester.analyze_conversations(force_all=force_analysis)
-        logger.info(f"Completed integrated bias analysis with {len(analysis_ids)} qualitative analyses.")
+        logger.warning("No new conversations for statistical analysis. Use --force-all to analyze existing conversations.")
+        # Debug: Print the stats_data structure
+        if stats_data:
+            logger.info(f"Stats data contains {len(stats_data.get('results', []))} results")
+            if 'results' in stats_data:
+                for i, result in enumerate(stats_data['results']):
+                    logger.info(f"Stats result {i} type: {type(result)}")
+                    if isinstance(result, str):
+                        logger.info(f"Stats result {i} is a string: {result}")
+    
+    # Run bias analysis
+    analysis_ids = []
+    if args.skip_analysis:
+        print("Skipping qualitative bias analysis")
+    elif args.force_all:
+        # Analyze all conversation pairs
+        logger.info("Analyzing all conversation pairs due to --force-all flag")
+        analysis_ids = tester.analyze_conversations(force_all=args.force_analysis, stats_data=stats_data)
+    elif tester.new_conversation_ids:
+        # Analyze only the new conversations
+        logger.info(f"Analyzing {len(tester.new_conversation_ids)} new conversations")
+        analysis_ids = tester.analyze_specific_conversations(
+            list(tester.new_conversation_ids.values()),
+            force_all=args.force_analysis,
+            stats_data=stats_data
+        )
+    else:
+        logger.warning("No new conversations to analyze. Use --force-all to analyze existing conversations.")
+    # Log completion of the analysis
+    if analysis_ids:
+        logger.info(f"Completed {len(analysis_ids)} qualitative bias analyses.")
+    if stats_data:
+        logger.info("Statistical analysis completed successfully.")
         
     # Log completion of the run
     logger.info(f"Bias test run {run_id} completed successfully")
+
+def clean_json_files():
+    """Clean all JSON files in the db_files directory."""
+    import shutil
+    
+    db_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "db_files")
+    if os.path.exists(db_dir):
+        print(f"Cleaning JSON files in {db_dir}...")
+        for subdir in ["prompts", "personas", "convos", "test_results", "stats", "results"]:
+            subdir_path = os.path.join(db_dir, subdir)
+            if os.path.exists(subdir_path):
+                print(f"Removing files in {subdir_path}...")
+                for filename in os.listdir(subdir_path):
+                    if filename.endswith(".json"):
+                        file_path = os.path.join(subdir_path, filename)
+                        os.remove(file_path)
+                        print(f"Removed {file_path}")
+    
+    print("JSON files cleaned successfully.")
 
 if __name__ == "__main__":
     main()

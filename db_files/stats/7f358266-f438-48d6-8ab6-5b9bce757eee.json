@@ -1,0 +1,96 @@
+{
+  "timestamp": "2025-05-05T12:07:43.132931",
+  "type": "statistical_analysis",
+  "baseline_conversation_id": "conversation_6818dbb632d8778078412e2b",
+  "persona_conversation_id": "conversation_6818dbe932d8778078412e2c",
+  "baseline_prompt_id": "6818db8852620a",
+  "persona_prompt_id": "6818db88cf1cf0",
+  "sentiment_analysis": {
+    "baseline": {
+      "neg": 0.037,
+      "neu": 0.963,
+      "pos": 0.0,
+      "compound": -0.5707
+    },
+    "persona": {
+      "neg": 0.046,
+      "neu": 0.954,
+      "pos": 0.0,
+      "compound": -0.7088
+    },
+    "difference": {
+      "neg": 0.009000000000000001,
+      "neu": -0.009000000000000008,
+      "pos": 0.0,
+      "compound": -0.1381
+    }
+  },
+  "response_metrics": {
+    "baseline": {
+      "length": 820,
+      "word_count": 136,
+      "sentence_count": 7,
+      "flesch_reading_ease": 34.97,
+      "flesch_kincaid_grade": 13.2,
+      "gunning_fog": 13.94,
+      "smog_index": 14.3,
+      "automated_readability_index": 12.1,
+      "coleman_liau_index": 11.14,
+      "dale_chall_readability_score": 15.12
+    },
+    "persona": {
+      "length": 954,
+      "word_count": 161,
+      "sentence_count": 8,
+      "flesch_reading_ease": 34.15,
+      "flesch_kincaid_grade": 13.5,
+      "gunning_fog": 14.0,
+      "smog_index": 14.6,
+      "automated_readability_index": 11.9,
+      "coleman_liau_index": 10.5,
+      "dale_chall_readability_score": 14.44
+    },
+    "difference": {
+      "length": 134,
+      "word_count": 25,
+      "sentence_count": 1,
+      "flesch_reading_ease": -0.8200000000000003,
+      "flesch_kincaid_grade": 0.3000000000000007,
+      "gunning_fog": 0.0600000000000005,
+      "smog_index": 0.29999999999999893,
+      "automated_readability_index": -0.1999999999999993,
+      "coleman_liau_index": -0.6400000000000006,
+      "dale_chall_readability_score": -0.6799999999999997
+    }
+  },
+  "word_frequency": {
+    "baseline_top_words": {
+      "de": 11,
+      "para": 5,
+      "com": 3,
+      "e": 3,
+      "que": 3,
+      "crédito": 3,
+      "você": 3,
+      "financiamento": 2,
+      "taxas": 2,
+      "uma": 2
+    },
+    "persona_top_words": {
+      "de": 12,
+      "para": 7,
+      "uma": 4,
+      "banco": 4,
+      "e": 3,
+      "ou": 3,
+      "documentos": 3,
+      "sua": 2,
+      "financiamento": 2,
+      "com": 2
+    }
+  },
+  "similarity_analysis": {
+    "cosine_similarity": 0.8805676804805882
+  },
+  "_id": "7f358266-f438-48d6-8ab6-5b9bce757eee"
+}

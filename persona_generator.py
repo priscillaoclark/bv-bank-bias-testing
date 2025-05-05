@@ -3,7 +3,7 @@
 Persona Generator for Aurora Chatbot Testing
 
 This script generates diverse personas based on various attributes using the Gemini API.
-The personas are saved to MongoDB and local JSON files.
+The personas are saved to local JSON files (no MongoDB dependency).
 """
 
 import os
@@ -17,9 +17,9 @@ from typing import Dict, List, Any, Optional, Tuple
 import google.generativeai as genai
 from dotenv import load_dotenv
 
-# Add the current directory to the path so we can import from storage
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from storage.database import Database
+# Add the current directory to the path so we can import our modules
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+from storage.json_database import JSONDatabase as Database
 
 # Load environment variables
 load_dotenv()
@@ -54,14 +54,8 @@ class PersonaGenerator:
     def __init__(self):
         """Initialize the PersonaGenerator."""
         # Initialize database connection
-        try:
-            self.db = Database()
-            self.mongodb_available = True
-            print("MongoDB connection available. Will save personas to both MongoDB and local files.")
-        except Exception as e:
-            print(f"MongoDB connection not available: {str(e)}")
-            print("Will save personas to local files only.")
-            self.mongodb_available = False
+        self.db = Database()
+        print("Using JSON database for storage.")
         
         # Create the db_files/personas directory if it doesn't exist
         self.personas_dir = os.path.join("db_files", "personas")
@@ -539,77 +533,77 @@ class PersonaGenerator:
             print(f"Error generating persona: {str(e)}")
             return {"error": str(e)}
     
-    def save_persona(self, persona: Dict[str, Any]) -> Optional[str]:
-        """Save a persona to MongoDB and local file."""
-        # Generate a unique ID
-        persona_id = str(uuid.uuid4())
+    def save_persona(self, persona: Dict[str, Any]) -> str:
+        """Save a persona to local JSON file.
         
-        # Add the ID to the persona
-        persona["_id"] = persona_id
+        Args:
+            persona: Persona data to save
+            
+        Returns:
+            ID of the saved persona
+        """
+        # Generate a unique ID if not present
+        if "_id" not in persona:
+            persona["_id"] = str(uuid.uuid4())
         
-        # Save to MongoDB if available
-        if self.mongodb_available:
-            try:
-                result = self.db.personas_collection.insert_one(persona)
-                persona_id = str(result.inserted_id)
-                print(f"Saved persona to MongoDB with ID: {persona_id}")
-            except Exception as e:
-                print(f"Error saving persona to MongoDB: {str(e)}")
+        # Add creation timestamp if not present
+        if "date_created" not in persona:
+            persona["date_created"] = datetime.now().isoformat()
         
         # Save to local file
         try:
-            file_path = os.path.join(self.personas_dir, f"{persona_id}.json")
+            # Ensure the personas directory exists
+            os.makedirs(self.personas_dir, exist_ok=True)
+            
+            # Save to file
+            file_path = os.path.join(self.personas_dir, f"{persona['_id']}.json")
             with open(file_path, 'w', encoding='utf-8') as f:
-                json.dump(persona, f, ensure_ascii=False, indent=2)
-            print(f"Saved persona to local file: {file_path}")
-            return persona_id
+                json.dump(persona, f, indent=2, ensure_ascii=False)
+            
+            print(f"Persona saved to local file: {file_path}")
+        except Exception as e:
+            print(f"Error saving persona to local file: {str(e)}")
         
-        except Exception as file_e:
-            print(f"Error saving persona to local file: {str(file_e)}")
-            return persona_id if persona_id else None
+        return persona["_id"]
     
-    def load_personas(self) -> List[Dict[str, Any]]:
-        """Load all available personas from MongoDB or local files.
+    def load_all_personas(self) -> List[Dict[str, Any]]:
+        """Load all personas from local JSON files.
         
         Returns:
-            List of persona dictionaries
+            List of all personas
         """
         personas = []
         
-        # Try to load from MongoDB first
-        if self.mongodb_available:
-            try:
-                cursor = self.db.personas_collection.find({})
-                for doc in cursor:
-                    personas.append(doc)
-                print(f"Loaded {len(personas)} personas from MongoDB")
-            except Exception as e:
-                print(f"Error loading personas from MongoDB: {str(e)}")
-        
-        # If MongoDB failed or returned no results, try local files
-        if not personas:
-            try:
-                for filename in os.listdir(self.personas_dir):
-                    if filename.endswith('.json'):
-                        file_path = os.path.join(self.personas_dir, filename)
+        # Load from local files
+        try:
+            if os.path.exists(self.personas_dir):
+                # Get all JSON files in the personas directory
+                json_files = [f for f in os.listdir(self.personas_dir) if f.endswith('.json')]
+                
+                # Load each persona
+                for file_name in json_files:
+                    try:
+                        file_path = os.path.join(self.personas_dir, file_name)
                         with open(file_path, 'r', encoding='utf-8') as f:
                             persona = json.load(f)
                             personas.append(persona)
-                print(f"Loaded {len(personas)} personas from local files")
-            except Exception as e:
-                print(f"Error loading personas from local files: {str(e)}")
+                    except Exception as e:
+                        print(f"Error loading persona from {file_name}: {str(e)}")
+        except Exception as e:
+            print(f"Error loading personas from local files: {str(e)}")
         
+        print(f"Loaded {len(personas)} personas in total")
         return personas
         
     def get_all_personas(self) -> List[Dict[str, Any]]:
-        """Get all available personas from database or local files.
+        """Get all available personas from local files.
         
         This is a convenience method that can be called from other modules.
         
         Returns:
             List of persona dictionaries
         """
-        return self.load_personas()
+        return self.load_all_personas()
         
     def generate_personas(self, count: int, diversity_strategy: str = "mixed", enforce_diversity: bool = True) -> List[str]:
         """Generate multiple personas and save them.
@@ -634,7 +628,7 @@ class PersonaGenerator:
             strategies = [diversity_strategy]
         
         # Load existing personas at the beginning to use for all generations
-        existing_personas = self.load_personas() if enforce_diversity else []
+        existing_personas = self.load_all_personas() if enforce_diversity else []
         print(f"Loaded {len(existing_personas)} existing personas for diversity comparison")
         
         # Generate personas

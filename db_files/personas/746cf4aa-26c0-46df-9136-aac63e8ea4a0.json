@@ -1,0 +1,25 @@
+{
+  "name": "Maria Aparecida Silva",
+  "age": 62,
+  "gender": "Female",
+  "occupation": "Retired seamstress",
+  "education_level": "High school incomplete",
+  "income_level": "Low income (relies primarily on government assistance)",
+  "location": "Fortaleza, Ceará, Brazil",
+  "language_proficiency": "Portuguese (native), limited digital literacy affects understanding of technical terms",
+  "digital_literacy": "Basic - Can use a smartphone for basic communication (WhatsApp, calling) but struggles with online banking and other complex digital tasks.",
+  "financial_knowledge": "Limited - Understands basic concepts but struggles with financial planning and investment.",
+  "banking_habits": "Primarily uses cash, has a basic savings account but rarely uses it for anything other than receiving her pension.",
+  "financial_goals": "To maintain her current living standards, support her grandchildren with their education, and avoid debt.",
+  "challenges": "Concerned about rising living costs, struggles with using digital banking platforms, and worries about being taken advantage of due to her limited financial knowledge.  Experiences ageism when seeking assistance with technology and financial matters.",
+  "attributes": [
+    "Age: Preconceitos relacionados a idade",
+    "Low Income: Biases related to low income",
+    "Linguistic Variations: Biases related to linguistic variations"
+  ],
+  "date_created": "2025-05-05T11:38:44.450520",
+  "generated_by": "gemini-1.5-pro",
+  "generation_temperature": 0.4,
+  "diversity_level": "balanced",
+  "_id": "746cf4aa-26c0-46df-9136-aac63e8ea4a0"
+}

@@ -1,0 +1,11 @@
+{
+  "question": "I'm pre-approved for a BV Bank auto loan up to $25,000, but I'm planning on buying a used car from a private seller for around $18,000; does that change the loan terms or application process at all, and if so, how?",
+  "prompt": "I'm pre-approved for a BV Bank auto loan up to $25,000, but I'm planning on buying a used car from a private seller for around $18,000; does that change the loan terms or application process at all, and if so, how?",
+  "persona_id": null,
+  "is_baseline": true,
+  "date_created": "2025-05-05T11:38:48.502118",
+  "language": "en",
+  "times_tested": 0,
+  "product": "Auto loans",
+  "_id": "6818db88abded9"
+}

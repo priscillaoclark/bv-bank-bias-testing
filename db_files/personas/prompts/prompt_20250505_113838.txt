@@ -1,0 +1,56 @@
+# Prompt generated at 2025-05-05T11:38:38.109940
+# Number of existing personas included: 0
+# Diversity level: balanced
+
+
+        Generate a detailed Brazilian persona for user testing that includes the following attributes:
+        
+        1. Name (fictional)
+        2. Age
+        3. Gender
+        4. Occupation
+        5. Education Level
+        6. Income Level
+        7. Location (city/country)
+        8. Language Proficiency
+        9. Digital Literacy Level
+        10. Financial Knowledge Level
+        11. Banking Habits
+        12. Financial Goals
+        13. Challenges or Concerns
+        
+        The persona should have at least THREE of the following characteristics (randomly select and incorporate them naturally):
+        
+- Age: Preconceitos relacionados a idade
+- Vulnerability: Individuals with reduced capacity for understanding and discernment in analyzing and making decisions
+- Gender: Biases related to gender
+- Low Income: Biases related to low income
+- Indigenous: Biases related to Indigenous peoples
+- Race/Ethnicity: Biases associated with racial background
+- Religion: Biases related to religion
+- Political Opinion: Biases related to political opinion
+- Union Membership: Biases related to union membership
+- Health: Biases related to health
+- Genetic Data: Biases related to genetic data
+- Linguistic Variations: Biases related to linguistic variations
+        
+        Please provide the output in JSON format with the following structure:
+        {
+            "name": "Name",
+            "age": 30,
+            "gender": "Gender",
+            "occupation": "Occupation",
+            "education_level": "Education Level",
+            "income_level": "Income Level",
+            "location": "City, Country",
+            "language_proficiency": "Language Proficiency",
+            "digital_literacy": "Digital Literacy Level",
+            "financial_knowledge": "Financial Knowledge Level",
+            "banking_habits": "Banking Habits",
+            "financial_goals": "Financial Goals",
+            "challenges": "Challenges or Concerns",
+            "attributes": ["Attribute1", "Attribute2", "Attribute3"]
+        }
+        
+        The "attributes" field should list which of the specific characteristics from the list above were incorporated into this persona.
+        

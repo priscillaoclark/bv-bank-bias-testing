@@ -6,7 +6,7 @@ This script generates prompts for testing the Aurora chatbot, including:
 1. Baseline prompts (without persona context)
 2. Persona-specific prompts (with persona context)
 
-The prompts are saved to MongoDB and local JSON files.
+This version uses only local JSON files for storage (no MongoDB dependency).
 """
 
 import os
@@ -14,14 +14,15 @@ import sys
 import json
 import argparse
 import random
+import uuid
 from datetime import datetime
 from typing import Dict, List, Any, Optional, Tuple
 import google.generativeai as genai
 from dotenv import load_dotenv
 
-# Add the current directory to the path so we can import from storage
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from storage.database import Database
+# Add the current directory to the path so we can import our modules
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+from storage.json_database import JSONDatabase as Database
 
 # Load environment variables
 load_dotenv()
@@ -40,14 +41,8 @@ class PromptGenerator:
     def __init__(self):
         """Initialize the PromptGenerator."""
         # Initialize database connection
-        try:
-            self.db = Database()
-            self.mongodb_available = True
-            print("MongoDB connection available. Will save prompts to both MongoDB and local files.")
-        except Exception as e:
-            print(f"MongoDB connection not available: {str(e)}")
-            print("Will save prompts to local files only.")
-            self.mongodb_available = False
+        self.db = Database()
+        print("Using JSON database for storage.")
         
         # Create the db_files/prompts directory if it doesn't exist
         self.prompts_dir = os.path.join("db_files", "prompts")
@@ -82,70 +77,50 @@ class PromptGenerator:
         ]
     
     def load_personas(self) -> List[Dict[str, Any]]:
-        """Load all available personas from MongoDB or local files."""
-        personas = []
+        """Load all available personas from local JSON files."""
+        # Use the database method to get all personas
+        personas = self.db.get_all_personas()
+        print(f"Loaded {len(personas)} personas from database.")
         
-        # Try to load from MongoDB first
-        if self.mongodb_available:
+        # If no personas were found, try direct file access as fallback
+        if not personas:
             try:
-                cursor = self.db.personas_collection.find({})
-                for doc in cursor:
-                    # Convert ObjectId to string for JSON serialization
-                    if '_id' in doc and not isinstance(doc['_id'], str):
-                        doc['_id'] = str(doc['_id'])
-                    personas.append(doc)
-                print(f"Loaded {len(personas)} personas from MongoDB.")
-                
-                if personas:
-                    return personas
-            except Exception as mongo_e:
-                print(f"Error loading personas from MongoDB: {str(mongo_e)}")
-        
-        # Fall back to loading from local files
-        try:
-            persona_files = [f for f in os.listdir(self.personas_dir) if f.endswith('.json')]
-            for file_name in persona_files:
-                file_path = os.path.join(self.personas_dir, file_name)
-                with open(file_path, 'r', encoding='utf-8') as f:
-                    persona = json.load(f)
-                    personas.append(persona)
-            print(f"Loaded {len(personas)} personas from local files.")
-        except Exception as file_e:
-            print(f"Error loading personas from local files: {str(file_e)}")
+                persona_files = [f for f in os.listdir(self.personas_dir) if f.endswith('.json')]
+                for file_name in persona_files:
+                    file_path = os.path.join(self.personas_dir, file_name)
+                    with open(file_path, 'r', encoding='utf-8') as f:
+                        persona = json.load(f)
+                        personas.append(persona)
+                print(f"Loaded {len(personas)} personas from local files.")
+            except Exception as e:
+                print(f"Error loading personas from local files: {str(e)}")
         
         return personas
         
     def load_all_prompts(self) -> List[Dict[str, Any]]:
-        """Load all available prompts from MongoDB or local files."""
+        """Load all available prompts from local JSON files."""
         prompts = []
         
-        # Try to load from MongoDB first
-        if self.mongodb_available:
-            try:
-                cursor = self.db.prompts_collection.find({})
-                for doc in cursor:
-                    # Convert ObjectId to string for JSON serialization
-                    if '_id' in doc and not isinstance(doc['_id'], str):
-                        doc['_id'] = str(doc['_id'])
-                    prompts.append(doc)
-                print(f"Loaded {len(prompts)} prompts from MongoDB.")
-                
-                if prompts:
-                    return prompts
-            except Exception as mongo_e:
-                print(f"Error loading prompts from MongoDB: {str(mongo_e)}")
-        
-        # Fall back to loading from local files
+        # Try to load from database
         try:
-            prompt_files = [f for f in os.listdir(self.prompts_dir) if f.endswith('.json')]
-            for file_name in prompt_files:
-                file_path = os.path.join(self.prompts_dir, file_name)
-                with open(file_path, 'r', encoding='utf-8') as f:
-                    prompt = json.load(f)
-                    prompts.append(prompt)
-            print(f"Loaded {len(prompts)} prompts from local files.")
-        except Exception as file_e:
-            print(f"Error loading prompts from local files: {str(file_e)}")
+            # Get all documents from the prompts collection
+            prompts = list(self.db.prompts_collection.find({}))
+            print(f"Loaded {len(prompts)} prompts from database.")
+        except Exception as e:
+            print(f"Error loading prompts from database: {str(e)}")
+        
+        # If no prompts were found, try direct file access as fallback
+        if not prompts:
+            try:
+                prompt_files = [f for f in os.listdir(self.prompts_dir) if f.endswith('.json')]
+                for file_name in prompt_files:
+                    file_path = os.path.join(self.prompts_dir, file_name)
+                    with open(file_path, 'r', encoding='utf-8') as f:
+                        prompt = json.load(f)
+                        prompts.append(prompt)
+                print(f"Loaded {len(prompts)} prompts from local files.")
+            except Exception as e:
+                print(f"Error loading prompts from local files: {str(e)}")
         
         return prompts
     
@@ -265,40 +240,48 @@ class PromptGenerator:
         return prompt_doc
     
     def save_prompt(self, prompt_doc: Dict[str, Any]) -> str:
-        """Save a prompt to MongoDB and local file."""
-        # Generate a unique ID for the prompt
-        prompt_id = None
+        """Save a prompt to local JSON file.
         
-        # Save to MongoDB if available
-        if self.mongodb_available:
-            try:
-                result = self.db.prompts_collection.insert_one(prompt_doc)
-                prompt_id = str(result.inserted_id)
-                print(f"Prompt stored in MongoDB with ID: {prompt_id}")
-            except Exception as mongo_e:
-                print(f"Error storing prompt in MongoDB: {str(mongo_e)}")
+        Args:
+            prompt_doc: Prompt document to save
+            
+        Returns:
+            ID of the saved prompt
+        """
+        # Generate a unique ID if not present
+        if "_id" not in prompt_doc:
+            prompt_doc["_id"] = str(uuid.uuid4())
         
-        # Always save to local file
+        # Add creation timestamp if not present
+        if "date_created" not in prompt_doc:
+            prompt_doc["date_created"] = datetime.now().isoformat()
+        
+        # Save to database
+        prompt_id = self.db.store_prompt(
+            prompt_doc.get("prompt", ""),
+            prompt_doc.get("attack_type"),
+            prompt_doc.get("language", "en"),
+            prompt_doc
+        )
+        
+        # Update the ID in the prompt document
+        prompt_doc["_id"] = prompt_id
+        
+        # Also save directly to file for backward compatibility
         try:
-            # Use MongoDB ID if available, otherwise generate a timestamp-based ID
-            if not prompt_id:
-                prompt_id = f"prompt_{datetime.now().strftime('%Y%m%d%H%M%S')}"
+            # Ensure the prompts directory exists
+            os.makedirs(self.prompts_dir, exist_ok=True)
             
-            # Create a copy of the prompt with the ID
-            prompt_with_id = prompt_doc.copy()
-            prompt_with_id["_id"] = prompt_id
-            
-            # Save to local file
+            # Save to file
             file_path = os.path.join(self.prompts_dir, f"{prompt_id}.json")
             with open(file_path, 'w', encoding='utf-8') as f:
-                json.dump(prompt_with_id, f, indent=2, ensure_ascii=False)
+                json.dump(prompt_doc, f, indent=2, ensure_ascii=False)
             
             print(f"Prompt saved to local file: {file_path}")
-            return prompt_id
+        except Exception as e:
+            print(f"Error saving prompt to local file: {str(e)}")
         
-        except Exception as file_e:
-            print(f"Error saving prompt to local file: {str(file_e)}")
-            return prompt_id if prompt_id else None
+        return prompt_id
     
     def generate_product_questions(self) -> Tuple[str, str, str]:
         """Generate English and Portuguese questions about a random BV Bank product using Gemini."""
