@@ -4,7 +4,7 @@
 """
 Generate a comprehensive text-based report from bias analysis results.
 
-This script loads all bias analysis results from MongoDB or local files,
+This script loads all bias analysis results from local JSON files,
 organizes them by persona, product, and language, and generates a
 comprehensive text report with summary statistics and key findings.
 """
@@ -18,208 +18,162 @@ from collections import defaultdict
 import statistics
 from pathlib import Path
 
-# Import database connection
-from storage.database import Database
-
 class ReportGenerator:
     """Generate comprehensive reports from bias analysis results."""
     
-    def __init__(self, output_dir: str = "reports", use_mongodb: bool = True):
+    def __init__(self, output_dir: str = "reports"):
         """Initialize the report generator.
         
         Args:
             output_dir: Directory to save reports
-            use_mongodb: Whether to use MongoDB for data retrieval
         """
         self.output_dir = output_dir
-        self.use_mongodb = use_mongodb
-        self.db = None
         
         if not os.path.exists(output_dir):
             os.makedirs(output_dir)
             
-        if use_mongodb:
-            try:
-                self.db = Database()
-                # Access the connection string safely
-                print(f"Connected to MongoDB successfully")
-            except Exception as e:
-                print(f"Warning: Could not connect to MongoDB: {str(e)}")
-                print("Falling back to local file storage.")
-                self.use_mongodb = False
+        print("Using local JSON files for data retrieval.")
     
     def load_analysis_results(self) -> List[Dict[str, Any]]:
-        """Load all bias analysis results from MongoDB or local files.
+        """Load all bias analysis results from local JSON files.
         
         Returns:
             List of analysis result documents
         """
         results = []
         
-        if self.use_mongodb and self.db:
-            try:
-                cursor = self.db.test_results_collection.find({})
-                for doc in cursor:
-                    results.append(doc)
-                print(f"Loaded {len(results)} analysis results from MongoDB.")
-            except Exception as e:
-                print(f"Error loading results from MongoDB: {str(e)}")
-                
-        # If MongoDB failed or is not being used, load from local files
-        if not results:
-            results_dir = os.path.join("db_files", "results")
-            if os.path.exists(results_dir):
-                for filename in os.listdir(results_dir):
-                    if filename.endswith(".json"):
-                        try:
-                            with open(os.path.join(results_dir, filename), 'r') as f:
-                                results.append(json.load(f))
-                        except Exception as e:
-                            print(f"Error loading {filename}: {str(e)}")
-                print(f"Loaded {len(results)} analysis results from local files.")
+        # Load from local files
+        results_dir = os.path.join("db_files", "results")
+        if os.path.exists(results_dir):
+            for filename in os.listdir(results_dir):
+                if filename.endswith(".json") and not filename.startswith("prompts/"):
+                    try:
+                        with open(os.path.join(results_dir, filename), 'r', encoding='utf-8') as f:
+                            doc = json.load(f)
+                            # Add the filename as ID if not present
+                            if '_id' not in doc:
+                                doc['_id'] = os.path.splitext(filename)[0]
+                            results.append(doc)
+                    except Exception as e:
+                        print(f"Error loading {filename}: {str(e)}")
+            print(f"Loaded {len(results)} analysis results from local files.")
+        else:
+            print(f"Warning: Results directory not found: {results_dir}")
             
         return results
     
     def load_statistical_results(self) -> List[Dict[str, Any]]:
-        """Load all statistical analysis results from MongoDB or local files.
+        """Load all statistical analysis results from local JSON files.
         
         Returns:
             List of statistical analysis result documents
         """
         results = []
         
-        if self.use_mongodb and self.db:
-            try:
-                cursor = self.db.stats_collection.find({})
-                for doc in cursor:
-                    results.append(doc)
-                print(f"Loaded {len(results)} statistical results from MongoDB.")
-            except Exception as e:
-                print(f"Error loading statistical results from MongoDB: {str(e)}")
-                
-        # If MongoDB failed or is not being used, load from local files
-        if not results:
-            stats_dir = os.path.join("db_files", "stats")
-            if os.path.exists(stats_dir):
-                for filename in os.listdir(stats_dir):
-                    if filename.endswith(".json"):
-                        try:
-                            with open(os.path.join(stats_dir, filename), 'r') as f:
-                                results.append(json.load(f))
-                        except Exception as e:
-                            print(f"Error loading {filename}: {str(e)}")
-                print(f"Loaded {len(results)} statistical results from local files.")
+        # Load from local files
+        stats_dir = os.path.join("db_files", "stats")
+        if os.path.exists(stats_dir):
+            for filename in os.listdir(stats_dir):
+                if filename.endswith(".json"):
+                    try:
+                        with open(os.path.join(stats_dir, filename), 'r', encoding='utf-8') as f:
+                            doc = json.load(f)
+                            # Add the filename as ID if not present
+                            if '_id' not in doc:
+                                doc['_id'] = os.path.splitext(filename)[0]
+                            results.append(doc)
+                    except Exception as e:
+                        print(f"Error loading {filename}: {str(e)}")
+            print(f"Loaded {len(results)} statistical results from local files.")
+        else:
+            print(f"Warning: Stats directory not found: {stats_dir}")
             
         return results
     
     def load_personas(self) -> Dict[str, Dict[str, Any]]:
-        """Load all personas from MongoDB or local files.
+        """Load all personas from local JSON files.
         
         Returns:
-            Dictionary of persona documents, keyed by persona ID
+            Dictionary of persona documents by ID
         """
         personas = {}
         
-        if self.use_mongodb and self.db:
-            try:
-                cursor = self.db.personas_collection.find({})
-                for doc in cursor:
-                    persona_id = str(doc.get('_id', '')) or doc.get('id', '')
-                    if persona_id:
-                        personas[persona_id] = doc
-                print(f"Loaded {len(personas)} personas from MongoDB.")
-            except Exception as e:
-                print(f"Error loading personas from MongoDB: {str(e)}")
-                
-        # If MongoDB failed or is not being used, load from local files
-        if not personas:
-            personas_dir = os.path.join("db_files", "personas")
-            if os.path.exists(personas_dir):
-                for filename in os.listdir(personas_dir):
-                    if filename.endswith(".json"):
-                        try:
-                            with open(os.path.join(personas_dir, filename), 'r') as f:
-                                doc = json.load(f)
-                                persona_id = doc.get('id', '')
-                                if persona_id:
-                                    personas[persona_id] = doc
-                        except Exception as e:
-                            print(f"Error loading {filename}: {str(e)}")
-                print(f"Loaded {len(personas)} personas from local files.")
+        # Load from local files
+        personas_dir = os.path.join("db_files", "personas")
+        if os.path.exists(personas_dir):
+            for filename in os.listdir(personas_dir):
+                if filename.endswith(".json") and not os.path.isdir(os.path.join(personas_dir, filename)):
+                    try:
+                        with open(os.path.join(personas_dir, filename), 'r', encoding='utf-8') as f:
+                            doc = json.load(f)
+                            persona_id = os.path.splitext(filename)[0]
+                            # Add the filename as ID if not present
+                            if '_id' not in doc:
+                                doc['_id'] = persona_id
+                            personas[persona_id] = doc
+                    except Exception as e:
+                        print(f"Error loading {filename}: {str(e)}")
+            print(f"Loaded {len(personas)} personas from local files.")
+        else:
+            print(f"Warning: Personas directory not found: {personas_dir}")
             
         return personas
     
     def load_prompts(self) -> Dict[str, Dict[str, Any]]:
-        """Load all prompts from MongoDB or local files.
+        """Load all prompts from local JSON files.
         
         Returns:
-            Dictionary of prompt documents, keyed by prompt ID
+            Dictionary of prompt documents by ID
         """
         prompts = {}
         
-        if self.use_mongodb and self.db:
-            try:
-                cursor = self.db.prompts_collection.find({})
-                for doc in cursor:
-                    prompt_id = str(doc.get('_id', ''))
-                    if prompt_id:
-                        prompts[prompt_id] = doc
-                print(f"Loaded {len(prompts)} prompts from MongoDB.")
-            except Exception as e:
-                print(f"Error loading prompts from MongoDB: {str(e)}")
-                
-        # If MongoDB failed or is not being used, load from local files
-        if not prompts:
-            prompts_dir = os.path.join("db_files", "prompts")
-            if os.path.exists(prompts_dir):
-                for filename in os.listdir(prompts_dir):
-                    if filename.endswith(".json"):
-                        try:
-                            with open(os.path.join(prompts_dir, filename), 'r') as f:
-                                doc = json.load(f)
-                                prompt_id = str(doc.get('_id', ''))
-                                if prompt_id:
-                                    prompts[prompt_id] = doc
-                        except Exception as e:
-                            print(f"Error loading {filename}: {str(e)}")
-                print(f"Loaded {len(prompts)} prompts from local files.")
+        # Load from local files
+        prompts_dir = os.path.join("db_files", "prompts")
+        if os.path.exists(prompts_dir):
+            for filename in os.listdir(prompts_dir):
+                if filename.endswith(".json"):
+                    try:
+                        with open(os.path.join(prompts_dir, filename), 'r', encoding='utf-8') as f:
+                            doc = json.load(f)
+                            prompt_id = os.path.splitext(filename)[0]
+                            # Add the filename as ID if not present
+                            if '_id' not in doc:
+                                doc['_id'] = prompt_id
+                            prompts[prompt_id] = doc
+                    except Exception as e:
+                        print(f"Error loading {filename}: {str(e)}")
+            print(f"Loaded {len(prompts)} prompts from local files.")
+        else:
+            print(f"Warning: Prompts directory not found: {prompts_dir}")
             
         return prompts
     
     def load_conversations(self) -> Dict[str, Dict[str, Any]]:
-        """Load all conversations from MongoDB or local files.
+        """Load all conversations from local JSON files.
         
         Returns:
-            Dictionary of conversation documents, keyed by conversation ID
+            Dictionary of conversation documents by ID
         """
         conversations = {}
         
-        if self.use_mongodb and self.db:
-            try:
-                cursor = self.db.conversations_collection.find({})
-                for doc in cursor:
-                    conv_id = str(doc.get('_id', ''))
-                    if conv_id:
-                        conversations[conv_id] = doc
-                print(f"Loaded {len(conversations)} conversations from MongoDB.")
-            except Exception as e:
-                print(f"Error loading conversations from MongoDB: {str(e)}")
-                
-        # If MongoDB failed or is not being used, load from local files
-        if not conversations:
-            convos_dir = os.path.join("db_files", "convos")
-            if os.path.exists(convos_dir):
-                for filename in os.listdir(convos_dir):
-                    if filename.endswith(".json"):
-                        try:
-                            with open(os.path.join(convos_dir, filename), 'r') as f:
-                                doc = json.load(f)
-                                conv_id = str(doc.get('_id', ''))
-                                if conv_id:
-                                    conversations[conv_id] = doc
-                        except Exception as e:
-                            print(f"Error loading {filename}: {str(e)}")
-                print(f"Loaded {len(conversations)} conversations from local files.")
+        # Load from local files
+        convos_dir = os.path.join("db_files", "convos")
+        if os.path.exists(convos_dir):
+            for filename in os.listdir(convos_dir):
+                if filename.endswith(".json"):
+                    try:
+                        with open(os.path.join(convos_dir, filename), 'r', encoding='utf-8') as f:
+                            doc = json.load(f)
+                            convo_id = os.path.splitext(filename)[0]
+                            # Add the filename as ID if not present
+                            if '_id' not in doc:
+                                doc['_id'] = convo_id
+                            conversations[convo_id] = doc
+                    except Exception as e:
+                        print(f"Error loading {filename}: {str(e)}")
+            print(f"Loaded {len(conversations)} conversations from local files.")
+        else:
+            print(f"Warning: Conversations directory not found: {convos_dir}")
             
         return conversations
     
@@ -397,9 +351,13 @@ class ReportGenerator:
         Returns:
             Path to the generated report file
         """
+        # Make sure the output file path is in the output directory
         if not output_file:
             timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-            output_file = os.path.join(self.output_dir, f"bias_analysis_report_{timestamp}.txt")
+            output_path = os.path.join(self.output_dir, f"bias_analysis_report_{timestamp}.txt")
+        else:
+            # If output_file is provided, ensure it's in the output directory
+            output_path = os.path.join(self.output_dir, output_file)
         
         # Calculate overall statistics
         stats = self.calculate_bias_statistics(analysis_results, prompts)
@@ -408,7 +366,7 @@ class ReportGenerator:
         results_by_persona = self.organize_results_by_persona(analysis_results, prompts, personas)
         
         # Generate the report
-        with open(output_file, 'w', encoding='utf-8') as f:
+        with open(output_path, 'w', encoding='utf-8') as f:
             # Header
             f.write("=" * 80 + "\n")
             f.write(f"AURORA CHATBOT BIAS ANALYSIS REPORT\n")
@@ -568,16 +526,6 @@ class ReportGenerator:
             for persona_id, results in results_by_persona.items():
                 # Get persona details
                 persona_details = self.get_persona_details(persona_id, personas)
-                
-                # Load persona from MongoDB if not found in local cache
-                if persona_details['name'] == "Unknown" and self.use_mongodb and self.db:
-                    try:
-                        # Try to find persona in MongoDB by ID
-                        mongo_persona = self.db.personas_collection.find_one({"id": persona_id})
-                        if mongo_persona:
-                            persona_details = self.get_persona_details(persona_id, {persona_id: mongo_persona})
-                    except Exception as e:
-                        print(f"Error loading persona from MongoDB: {str(e)}")
                 
                 f.write(f"Persona: {persona_details['name']}\n")
                 f.write(f"  Age: {persona_details['age']}\n")
@@ -772,8 +720,8 @@ class ReportGenerator:
             f.write("END OF REPORT\n")
             f.write("=" * 80 + "\n")
         
-        print(f"Report generated successfully: {output_file}")
-        return output_file
+        print(f"Report generated successfully: {output_path}")
+        return output_path
     
     def generate_report(self, output_file: Optional[str] = None) -> str:
         """Generate a comprehensive report from all available data.
@@ -802,21 +750,24 @@ class ReportGenerator:
         )
 
 def main():
-    """Main function to run the report generator."""
+    """Run the report generator."""
     parser = argparse.ArgumentParser(description="Generate a comprehensive bias analysis report.")
-    parser.add_argument("--output", "-o", help="Path to output file")
-    parser.add_argument("--local-only", action="store_true", help="Use only local files, not MongoDB")
-    parser.add_argument("--output-dir", default="reports", help="Directory to save reports")
-    
+    parser.add_argument("--output", type=str, help="Output filename (default: auto-generated with timestamp)")
+    parser.add_argument("--output-dir", type=str, default="reports", help="Directory to save reports")
     args = parser.parse_args()
     
-    generator = ReportGenerator(
-        output_dir=args.output_dir,
-        use_mongodb=not args.local_only
-    )
+    # Create report generator
+    generator = ReportGenerator(output_dir=args.output_dir)
     
-    report_path = generator.generate_report(args.output)
-    print(f"Report generated: {report_path}")
+    # Generate the report
+    if args.output:
+        output_file = args.output
+    else:
+        timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+        output_file = f"bias_report_{timestamp}.txt"
+        
+    generator.generate_report(output_file=output_file)
+    print(f"Report generated: {os.path.join(args.output_dir, output_file)}")
 
 if __name__ == "__main__":
     main()
