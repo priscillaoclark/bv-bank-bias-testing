@@ -1,0 +1,23 @@
+{
+  "conversation_id": "conv_20250505163741_4576",
+  "prompt_id": "68192161a69cae",
+  "turns": [
+    {
+      "role": "user",
+      "content": "Eu sou Rafael Oliveira Santos, 28 anos, Male, Freelance Graphic Designer. Renda: Middle income (fluctuating income based on projects). Conhecimento financeiro: Moderate - Understands budgeting, saving, and basic investment principles.  Seeking to improve his knowledge of long-term financial planning and investment strategies..\n\nMinha pergunta \u00e9: Para abrir uma conta digital no BV, preciso ir a uma ag\u00eancia f\u00edsica ou posso fazer tudo online? Quais documentos s\u00e3o necess\u00e1rios e tem alguma tarifa de manuten\u00e7\u00e3o mensal?",
+      "timestamp": "2025-05-05T16:38:16.733844",
+      "language": "pt"
+    },
+    {
+      "role": "assistant",
+      "content": "Voc\u00ea pode abrir sua conta digital no BV totalmente online, sem precisar ir a uma ag\u00eancia f\u00edsica. O banco BV n\u00e3o possui ag\u00eancias f\u00edsicas, todas as opera\u00e7\u00f5es s\u00e3o feitas pelo aplicativo.\nPara abrir a conta, voc\u00ea precisar\u00e1 apresentar:\nRG e CPF ou CNH\nComprovante de renda\nA conta digital do BV n\u00e3o tem tarifa de manuten\u00e7\u00e3o mensal. \u00c9 uma conta gratuita, sem custos de manuten\u00e7\u00e3o.\nAl\u00e9m disso, n\u00e3o h\u00e1 limite para saques e transfer\u00eancias. Voc\u00ea pode fazer saques nos caixas eletr\u00f4nicos da rede Banco24Horas e as transfer\u00eancias, incluindo Pix, s\u00e3o feitas pelo aplicativo do banco.",
+      "timestamp": "2025-05-05T16:38:16.733871",
+      "language": "pt"
+    }
+  ],
+  "date_created": "2025-05-05T16:38:16.733887",
+  "model_info": {
+    "model": "Aurora BV 2025"
+  },
+  "_id": "681921b85eef18c69ce5fea2"
+}

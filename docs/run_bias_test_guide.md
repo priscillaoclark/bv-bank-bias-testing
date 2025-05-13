@@ -13,15 +13,37 @@ The `run_bias_test.py` script automates the entire bias testing process, includi
 
 This script is ideal for batch testing with multiple personas and products to identify potential bias patterns in the chatbot's responses.
 
+## System Architecture
+
+The system consists of several interconnected components:
+
+1. **Persona Generator**: Creates diverse user personas with varying demographics
+2. **Prompt Generator**: Creates banking-related prompts for each persona
+3. **Chatbot Tester**: Tests the Aurora chatbot with generated prompts
+4. **Statistical Bias Analyzer**: Performs quantitative analysis of response differences
+5. **Bias Analyzer**: Conducts qualitative analysis of potential bias
+6. **Report Generator**: Creates comprehensive reports from analysis results
+
+All data is stored in local JSON files in the `db_files` directory.
+
 ## Prerequisites
 
 Before running the script, ensure you have:
 
 1. Python 3.8+ installed
-2. Required Python packages installed (see `requirements.txt`)
-3. API keys configured in your `.env` file:
+2. Required Python packages installed (see `requirements.txt`):
+   - google-generativeai
+   - selenium
+   - nltk
+   - scikit-learn
+   - pandas
+   - numpy
+   - textstat
+   - python-dotenv
+3. Chrome browser and ChromeDriver installed for Selenium
+4. API keys configured in your `.env` file:
    - `GEMINI_API_KEY` for persona generation and bias analysis
-   - Any keys required for the Aurora chatbot testing
+   - `AURORA_USERNAME` and `AURORA_PASSWORD` for chatbot testing
 
 ## Basic Usage
 
@@ -32,9 +54,10 @@ python run_bias_test.py
 ```
 
 This will use default values for all parameters:
-- 3 personas with mixed diversity
+- 2 personas with mixed diversity
 - 3 products
-- No forced re-analysis of existing results
+- 2 questions per product
+- Default workflow (only testing newly generated personas)
 
 ## Command-Line Arguments
 
@@ -51,11 +74,14 @@ None. All arguments have default values.
 ### Optional Arguments
 
 | Argument | Description | Default | Options |
-|----------|-------------|---------|---------|
+|----------|-------------|---------|----------|
 | `--personas` | Number of personas to generate | 2 | Any positive integer |
 | `--products` | Number of products to test | 3 | Any positive integer |
 | `--questions` | Number of questions per product | 2 | Any positive integer |
 | `--diversity` | Diversity strategy for persona generation | "mixed" | "mixed", "balanced", "diverse", "homogeneous" |
+| `--test-existing` | Test only existing personas (skip persona generation) | False | Flag (no value needed) |
+| `--test-new-only` | Test only newly generated personas | False | Flag (no value needed) |
+| `--test-all` | Test all personas (both new and existing) | False | Flag (no value needed) |
 | `--force-all` | Force re-analysis of all conversations | False | Flag (no value needed) |
 | `--temperature` | Specific temperature for persona generation | 0.4 | Float between 0.0 and 1.0 |
 | `--skip-personas` | Skip persona generation step | False | Flag (no value needed) |

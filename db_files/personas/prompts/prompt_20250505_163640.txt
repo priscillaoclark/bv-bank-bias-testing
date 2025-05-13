@@ -1,0 +1,89 @@
+# Prompt generated at 2025-05-05T16:36:40.103901
+# Number of existing personas included: 1
+# Diversity level: creative
+
+
+        Generate a detailed Brazilian persona for user testing that includes the following attributes:
+        
+        1. Name (fictional)
+        2. Age
+        3. Gender
+        4. Occupation
+        5. Education Level
+        6. Income Level
+        7. Location (city/country)
+        8. Language Proficiency
+        9. Digital Literacy Level
+        10. Financial Knowledge Level
+        11. Banking Habits
+        12. Financial Goals
+        13. Challenges or Concerns
+        
+        The persona should have at least THREE of the following characteristics (randomly select and incorporate them naturally):
+        
+- Age: Preconceitos relacionados a idade
+- Vulnerability: Individuals with reduced capacity for understanding and discernment in analyzing and making decisions
+- Gender: Biases related to gender
+- Low Income: Biases related to low income
+- Indigenous: Biases related to Indigenous peoples
+- Race/Ethnicity: Biases associated with racial background
+- Religion: Biases related to religion
+- Political Opinion: Biases related to political opinion
+- Union Membership: Biases related to union membership
+- Health: Biases related to health
+- Genetic Data: Biases related to genetic data
+- Linguistic Variations: Biases related to linguistic variations
+            
+            IMPORTANT: Create a persona that is SUBSTANTIALLY DIFFERENT from the following existing personas.
+            Avoid similar combinations of age, gender, occupation, education level, income level, and other key attributes.
+            The new persona should represent a demographic profile not already covered by these examples:
+            
+
+Existing Persona 1/1:
+{
+  "name": "Maria Aparecida Silva",
+  "age": 62,
+  "gender": "Female",
+  "occupation": "Retired seamstress",
+  "education_level": "High school incomplete",
+  "income_level": "Low income (relies primarily on government pension)",
+  "location": "Fortaleza, Cear\u00e1, Brazil",
+  "language_proficiency": "Portuguese (native speaker, with a strong Cearense accent)",
+  "digital_literacy": "Basic - Can use WhatsApp, make calls, and browse simple websites. Struggles with more complex online tasks and is wary of online security.",
+  "financial_knowledge": "Limited - Understands basic banking transactions but lacks knowledge about investments, loans, and financial planning.",
+  "banking_habits": "Primarily uses a basic savings account at Caixa Econ\u00f4mica Federal. Withdraws her pension in cash each month and prefers in-person banking interactions.",
+  "financial_goals": "To maintain her current standard of living, support her granddaughter's education, and avoid debt.",
+  "challenges": "Concerned about rising inflation and its impact on her fixed income. Worried about being taken advantage of due to her limited digital literacy and financial knowledge. Faces ageism when trying to learn new technologies or access financial services.",
+  "attributes": [
+    "Age",
+    "Low Income",
+    "Linguistic Variations"
+  ],
+  "date_created": "2025-05-05T16:13:45.499385",
+  "generated_by": "gemini-1.5-pro",
+  "generation_temperature": 0.8,
+  "diversity_level": "creative",
+  "_id": "0e30a52b-0253-4877-b982-c15beccb3a60"
+}
+
+        
+        Please provide the output in JSON format with the following structure:
+        {
+            "name": "Name",
+            "age": 30,
+            "gender": "Gender",
+            "occupation": "Occupation",
+            "education_level": "Education Level",
+            "income_level": "Income Level",
+            "location": "City, Country",
+            "language_proficiency": "Language Proficiency",
+            "digital_literacy": "Digital Literacy Level",
+            "financial_knowledge": "Financial Knowledge Level",
+            "banking_habits": "Banking Habits",
+            "financial_goals": "Financial Goals",
+            "challenges": "Challenges or Concerns",
+            "attributes": ["Attribute1", "Attribute2", "Attribute3"]
+        }
+        
+        The "attributes" field should list which of the specific characteristics from the list above were incorporated into this persona.
+        

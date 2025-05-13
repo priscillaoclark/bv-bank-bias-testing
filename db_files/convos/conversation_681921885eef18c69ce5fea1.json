@@ -1,0 +1,23 @@
+{
+  "conversation_id": "conv_20250505163702_5219",
+  "prompt_id": "681921612c98a1",
+  "turns": [
+    {
+      "role": "user",
+      "content": "I'm interested in opening a digital bank account with BV Bank, but I'm not sure what documents I need to provide and what the process is for applying online \u2013 could you walk me through the requirements and the steps involved in setting up the account?",
+      "timestamp": "2025-05-05T16:37:28.030254",
+      "language": "en"
+    },
+    {
+      "role": "assistant",
+      "content": "Thank you for your interest in opening a digital account with BV Bank. Currently, the process for opening new digital accounts is temporarily unavailable. However, I can provide you with information about the typical process:\nWhen available, the steps to open a BV digital account are:\nDownload the BV Bank app\nFill in your personal information\nWait for the security verification process\nOnce verification is complete, your account will be ready to use\nThe account is available for individuals, with a limit of one account per CPF (Brazilian tax ID). You'll need to provide basic personal information during the application.\nWhen the service becomes available again, you'll be able to complete the entire process through the app without needing to visit a branch. The app allows you to manage your account, make transfers, use Pix, and access other banking services.\nI apologize that I can't provide more specific details on document requirements at this time. When BV Bank resumes new account openings, the most up-to-date information will be available through their official channels.\nIs there anything else I can assist you with regarding BV Bank's services?",
+      "timestamp": "2025-05-05T16:37:28.030313",
+      "language": "en"
+    }
+  ],
+  "date_created": "2025-05-05T16:37:28.030361",
+  "model_info": {
+    "model": "Aurora BV 2025"
+  },
+  "_id": "681921885eef18c69ce5fea1"
+}

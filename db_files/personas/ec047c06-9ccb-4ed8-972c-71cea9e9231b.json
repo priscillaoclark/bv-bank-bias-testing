@@ -1,0 +1,25 @@
+{
+  "name": "Rafael Oliveira Santos",
+  "age": 28,
+  "gender": "Male",
+  "occupation": "Freelance Graphic Designer",
+  "education_level": "Bachelor's degree in Fine Arts",
+  "income_level": "Middle income (fluctuating income based on projects)",
+  "location": "Belo Horizonte, Minas Gerais, Brazil",
+  "language_proficiency": "Portuguese (native), English (intermediate)",
+  "digital_literacy": "High - Uses various design software, manages online portfolios, and actively uses social media for networking. Comfortable with online transactions and financial management tools.",
+  "financial_knowledge": "Moderate - Understands budgeting, saving, and basic investment principles.  Seeking to improve his knowledge of long-term financial planning and investment strategies.",
+  "banking_habits": "Uses a digital bank for daily transactions and a traditional bank for savings and investments.  Explores different fintech solutions for managing finances and investments.",
+  "financial_goals": "To achieve financial stability, invest in his own design studio, and eventually purchase a property.  Interested in diversifying his income streams and building a strong financial foundation.",
+  "challenges": "Experiences income instability due to the nature of freelance work. Faces biases related to his Indigenous heritage when seeking funding or collaborating with larger companies.  Concerned about the economic impact of political instability on his long-term financial goals.",
+  "attributes": [
+    "Indigenous",
+    "Political Opinion",
+    "Low Income"
+  ],
+  "date_created": "2025-05-05T16:36:46.675284",
+  "generated_by": "gemini-1.5-pro",
+  "generation_temperature": 0.8,
+  "diversity_level": "creative",
+  "_id": "ec047c06-9ccb-4ed8-972c-71cea9e9231b"
+}

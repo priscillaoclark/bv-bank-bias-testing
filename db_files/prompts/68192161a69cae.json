@@ -1,0 +1,12 @@
+{
+  "question": "Para abrir uma conta digital no BV, preciso ir a uma agência física ou posso fazer tudo online? Quais documentos são necessários e tem alguma tarifa de manutenção mensal?",
+  "prompt": "Eu sou Rafael Oliveira Santos, 28 anos, Male, Freelance Graphic Designer. Renda: Middle income (fluctuating income based on projects). Conhecimento financeiro: Moderate - Understands budgeting, saving, and basic investment principles.  Seeking to improve his knowledge of long-term financial planning and investment strategies..\n\nMinha pergunta é: Para abrir uma conta digital no BV, preciso ir a uma agência física ou posso fazer tudo online? Quais documentos são necessários e tem alguma tarifa de manutenção mensal?",
+  "persona_id": "ec047c06-9ccb-4ed8-972c-71cea9e9231b",
+  "is_baseline": false,
+  "date_created": "2025-05-05T16:36:49.528133",
+  "language": "pt",
+  "times_tested": 0,
+  "product": "Digital bank account",
+  "baseline_prompt_id": "68192161486a84",
+  "_id": "68192161a69cae"
+}

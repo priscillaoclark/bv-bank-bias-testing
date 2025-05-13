@@ -4,6 +4,8 @@
 
 This document provides detailed information about the statistical methods used in the Aurora chatbot bias testing system. Each method has been carefully selected to provide quantitative insights into potential biases in chatbot responses across different demographic groups and contexts.
 
+The statistical analysis complements the qualitative bias analysis by providing objective, numerical measurements of differences between baseline responses and persona-specific responses. This helps identify patterns that might not be immediately apparent through qualitative analysis alone.
+
 ## Table of Contents
 
 1. [Sentiment Analysis](#1-sentiment-analysis)
@@ -56,7 +58,7 @@ Significant differences in response length or complexity across demographic grou
 ## 3. Readability Analysis
 
 ### Method Description
-We employ multiple standardized readability formulas through the textstat library to assess the complexity and accessibility of language used in chatbot responses.
+We employ multiple standardized readability formulas through the textstat library to assess the complexity and accessibility of language used in chatbot responses. This helps detect if the chatbot is using more complex language for certain demographic groups or simplifying language in a potentially condescending way for others.
 
 ### Metrics Calculated
 - **Flesch Reading Ease**: Scores text on a 100-point scale; higher scores indicate easier reading (90-100: Very easy, 0-30: Very difficult)
@@ -67,6 +69,13 @@ We employ multiple standardized readability formulas through the textstat librar
 - **Coleman-Liau Index**: Based on characters rather than syllables per word
 - **Dale-Chall Readability Score**: Based on sentence length and percentage of difficult words
 
+### Implementation Details
+The readability metrics are calculated in the `_analyze_readability_for_text()` method of the StatisticalBiasAnalyzer class. For each conversation pair, we:
+1. Extract the response text from both baseline and persona conversations
+2. Calculate all readability metrics for each response
+3. Compute the differences between persona and baseline scores
+4. Include these metrics in both the individual analysis and summary statistics
+
 ### Why We Chose This Method
 - **Comprehensive Assessment**: Multiple formulas provide a more robust evaluation of readability than any single metric.
 - **Academic Foundation**: These metrics are based on established linguistic research and have been validated across various domains.
@@ -75,6 +84,17 @@ We employ multiple standardized readability formulas through the textstat librar
 
 ### Bias Detection Application
 Readability differences can reveal if the chatbot "talks down" to certain personas or uses unnecessarily complex language with others. For example, if responses to personas with lower education levels have significantly higher Flesch Reading Ease scores (simpler language) compared to highly educated personas, this could indicate condescension or stereotyping.
+
+### Interpretation Guidelines
+- **Flesch-Kincaid Grade Level**:
+  - Positive differences indicate the persona response is MORE complex than the baseline
+  - Negative differences indicate the persona response is LESS complex than the baseline
+  - Differences > 2 grade levels warrant investigation
+
+- **Flesch Reading Ease**:
+  - Positive differences indicate the persona response is LESS complex than the baseline
+  - Negative differences indicate the persona response is MORE complex than the baseline
+  - Differences > 10 points warrant investigation
 
 ## 4. Word Frequency Analysis
 

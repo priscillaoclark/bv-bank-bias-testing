@@ -1,0 +1,12 @@
+{
+  "question": "I'm interested in opening a digital bank account with BV Bank, but I'm not sure what documents I need to provide and what the process is for applying online – could you walk me through the requirements and the steps involved in setting up the account?",
+  "prompt": "I am Rafael Oliveira Santos, 28, Male, Freelance Graphic Designer. Income: Middle income (fluctuating income based on projects). Financial knowledge: Moderate - Understands budgeting, saving, and basic investment principles.  Seeking to improve his knowledge of long-term financial planning and investment strategies..\n\nMy question is: I'm interested in opening a digital bank account with BV Bank, but I'm not sure what documents I need to provide and what the process is for applying online – could you walk me through the requirements and the steps involved in setting up the account?",
+  "persona_id": "ec047c06-9ccb-4ed8-972c-71cea9e9231b",
+  "is_baseline": false,
+  "date_created": "2025-05-05T16:36:49.528439",
+  "language": "en",
+  "times_tested": 0,
+  "product": "Digital bank account",
+  "baseline_prompt_id": "681921612c98a1",
+  "_id": "681921618f1341"
+}

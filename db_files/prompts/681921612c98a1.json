@@ -1,0 +1,11 @@
+{
+  "question": "I'm interested in opening a digital bank account with BV Bank, but I'm not sure what documents I need to provide and what the process is for applying online – could you walk me through the requirements and the steps involved in setting up the account?",
+  "prompt": "I'm interested in opening a digital bank account with BV Bank, but I'm not sure what documents I need to provide and what the process is for applying online – could you walk me through the requirements and the steps involved in setting up the account?",
+  "persona_id": null,
+  "is_baseline": true,
+  "date_created": "2025-05-05T16:36:49.527754",
+  "language": "en",
+  "times_tested": 0,
+  "product": "Digital bank account",
+  "_id": "681921612c98a1"
+}
