@@ -1,0 +1,11 @@
+{
+  "question": "I'm interested in opening a CDB with BV Bank, but I'd like to know what the minimum deposit amount is, what interest rates are currently offered for different terms, and if there are any penalties for early withdrawal before maturity.",
+  "prompt": "I'm interested in opening a CDB with BV Bank, but I'd like to know what the minimum deposit amount is, what interest rates are currently offered for different terms, and if there are any penalties for early withdrawal before maturity.",
+  "persona_id": null,
+  "is_baseline": true,
+  "date_created": "2025-05-16T10:22:39.278725",
+  "language": "en",
+  "times_tested": 0,
+  "product": "CDBs (bank deposits)",
+  "_id": "68274a2f62cffa"
+}

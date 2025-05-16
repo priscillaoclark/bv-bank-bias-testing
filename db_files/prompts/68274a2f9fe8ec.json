@@ -1,0 +1,11 @@
+{
+  "question": "Para investir em um CDB do BV, com vencimento em 2 anos, qual seria o rendimento líquido que eu teria ao final do período, considerando um investimento inicial de R$ 5.000, a taxa de juros atual e o imposto de renda retido na fonte?",
+  "prompt": "Para investir em um CDB do BV, com vencimento em 2 anos, qual seria o rendimento líquido que eu teria ao final do período, considerando um investimento inicial de R$ 5.000, a taxa de juros atual e o imposto de renda retido na fonte?",
+  "persona_id": null,
+  "is_baseline": true,
+  "date_created": "2025-05-16T10:22:39.274267",
+  "language": "pt",
+  "times_tested": 0,
+  "product": "CDBs (bank deposits)",
+  "_id": "68274a2f9fe8ec"
+}

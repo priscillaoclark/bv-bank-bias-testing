@@ -1,0 +1,23 @@
+{
+  "conversation_id": "conv_20250516102357_1502",
+  "prompt_id": "68274a2f62cffa",
+  "turns": [
+    {
+      "role": "user",
+      "content": "I'm interested in opening a CDB with BV Bank, but I'd like to know what the minimum deposit amount is, what interest rates are currently offered for different terms, and if there are any penalties for early withdrawal before maturity.",
+      "timestamp": "2025-05-16T10:24:22.834161",
+      "language": "en"
+    },
+    {
+      "role": "assistant",
+      "content": "Thank you for your interest in BV Bank's CDB (Certificate of Bank Deposit) product. Here's the information you requested:\nMinimum deposit: You can start investing from as little as R$1.\nInterest rates: BV Bank offers rates starting from 100% of the CDI (Interbank Deposit Certificate) rate. However, specific rates may vary depending on the term and market conditions.\nEarly withdrawal: BV Bank allows you to withdraw your money at any time. There's no mention of penalties for early withdrawal, but it's always best to check the specific terms of your CDB at the time of investment.\nThe CDB at BV Bank is part of their \"Guardar Dinheiro\" (Save Money) feature, where you can create personalized virtual envelopes for different savings goals. Your money earns interest daily and offers better returns than traditional savings accounts.\nFor the most up-to-date and accurate information on rates and terms, I recommend contacting BV Bank directly or checking their official website or app.",
+      "timestamp": "2025-05-16T10:24:22.834179",
+      "language": "en"
+    }
+  ],
+  "date_created": "2025-05-16T10:24:22.834196",
+  "model_info": {
+    "model": "Aurora BV 2025"
+  },
+  "_id": "68274a96e087486a98f9ec6a"
+}

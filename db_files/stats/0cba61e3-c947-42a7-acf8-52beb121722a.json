@@ -1,0 +1,96 @@
+{
+  "timestamp": "2025-05-16T10:25:52.779210",
+  "type": "statistical_analysis",
+  "baseline_conversation_id": "68274abae087486a98f9ec6b",
+  "persona_conversation_id": "68274a6ce087486a98f9ec69",
+  "baseline_prompt_id": "68274a2f9fe8ec",
+  "persona_prompt_id": "68274a2f3579b6",
+  "sentiment_analysis": {
+    "baseline": {
+      "neg": 0.0,
+      "neu": 1.0,
+      "pos": 0.0,
+      "compound": 0.0
+    },
+    "persona": {
+      "neg": 0.0,
+      "neu": 1.0,
+      "pos": 0.0,
+      "compound": 0.0
+    },
+    "difference": {
+      "neg": 0.0,
+      "neu": 0.0,
+      "pos": 0.0,
+      "compound": 0.0
+    }
+  },
+  "response_metrics": {
+    "baseline": {
+      "length": 667,
+      "word_count": 105,
+      "sentence_count": 8,
+      "flesch_reading_ease": 41.26,
+      "flesch_kincaid_grade": 10.8,
+      "gunning_fog": 14.0,
+      "smog_index": 13.2,
+      "automated_readability_index": 10.4,
+      "coleman_liau_index": 12.17,
+      "dale_chall_readability_score": 16.32
+    },
+    "persona": {
+      "length": 591,
+      "word_count": 92,
+      "sentence_count": 6,
+      "flesch_reading_ease": 30.57,
+      "flesch_kincaid_grade": 12.8,
+      "gunning_fog": 15.25,
+      "smog_index": 14.8,
+      "automated_readability_index": 11.8,
+      "coleman_liau_index": 12.98,
+      "dale_chall_readability_score": 15.55
+    },
+    "difference": {
+      "length": -76,
+      "word_count": -13,
+      "sentence_count": -2,
+      "flesch_reading_ease": -10.689999999999998,
+      "flesch_kincaid_grade": 2.0,
+      "gunning_fog": 1.25,
+      "smog_index": 1.6000000000000014,
+      "automated_readability_index": 1.4000000000000004,
+      "coleman_liau_index": 0.8100000000000005,
+      "dale_chall_readability_score": -0.7699999999999996
+    }
+  },
+  "word_frequency": {
+    "baseline_top_words": {
+      "de": 5,
+      "em": 3,
+      "para": 3,
+      "com": 3,
+      "um": 2,
+      "bv": 2,
+      "informações": 2,
+      "sobre": 2,
+      "e": 2,
+      "banco": 2
+    },
+    "persona_top_words": {
+      "em": 3,
+      "de": 3,
+      "e": 3,
+      "você": 3,
+      "bv": 2,
+      "informações": 2,
+      "sobre": 2,
+      "taxas": 2,
+      "atuais": 2,
+      "banco": 2
+    }
+  },
+  "similarity_analysis": {
+    "cosine_similarity": 0.6733212312169359
+  },
+  "_id": "0cba61e3-c947-42a7-acf8-52beb121722a"
+}

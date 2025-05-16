@@ -1,0 +1,96 @@
+{
+  "timestamp": "2025-05-16T10:25:52.786912",
+  "type": "statistical_analysis",
+  "baseline_conversation_id": "68274a96e087486a98f9ec6a",
+  "persona_conversation_id": "68274aeee087486a98f9ec6c",
+  "baseline_prompt_id": "68274a2f62cffa",
+  "persona_prompt_id": "68274a2f28d5d9",
+  "sentiment_analysis": {
+    "baseline": {
+      "neg": 0.009,
+      "neu": 0.835,
+      "pos": 0.156,
+      "compound": 0.9741
+    },
+    "persona": {
+      "neg": 0.011,
+      "neu": 0.847,
+      "pos": 0.143,
+      "compound": 0.9734
+    },
+    "difference": {
+      "neg": 0.002,
+      "neu": 0.01200000000000001,
+      "pos": -0.013000000000000012,
+      "compound": -0.0006999999999999229
+    }
+  },
+  "response_metrics": {
+    "baseline": {
+      "length": 986,
+      "word_count": 158,
+      "sentence_count": 9,
+      "flesch_reading_ease": 53.61,
+      "flesch_kincaid_grade": 10.2,
+      "gunning_fog": 12.36,
+      "smog_index": 13.7,
+      "automated_readability_index": 12.1,
+      "coleman_liau_index": 11.66,
+      "dale_chall_readability_score": 9.51
+    },
+    "persona": {
+      "length": 1103,
+      "word_count": 180,
+      "sentence_count": 11,
+      "flesch_reading_ease": 54.83,
+      "flesch_kincaid_grade": 9.7,
+      "gunning_fog": 11.45,
+      "smog_index": 12.4,
+      "automated_readability_index": 10.9,
+      "coleman_liau_index": 10.9,
+      "dale_chall_readability_score": 9.27
+    },
+    "difference": {
+      "length": 117,
+      "word_count": 22,
+      "sentence_count": 2,
+      "flesch_reading_ease": 1.2199999999999989,
+      "flesch_kincaid_grade": -0.5,
+      "gunning_fog": -0.9100000000000001,
+      "smog_index": -1.299999999999999,
+      "automated_readability_index": -1.1999999999999993,
+      "coleman_liau_index": -0.7599999999999998,
+      "dale_chall_readability_score": -0.2400000000000002
+    }
+  },
+  "word_frequency": {
+    "baseline_top_words": {
+      "bank": 6,
+      "bv": 5,
+      "rates": 4,
+      "interest": 3,
+      "cdb": 3,
+      "deposit": 3,
+      "money": 3,
+      "certificate": 2,
+      "information": 2,
+      "offers": 2
+    },
+    "persona_top_words": {
+      "bv": 6,
+      "bank": 5,
+      "cdb": 4,
+      "interest": 3,
+      "account": 3,
+      "information": 3,
+      "product": 2,
+      "called": 2,
+      "money": 2,
+      "digital": 2
+    }
+  },
+  "similarity_analysis": {
+    "cosine_similarity": 0.7158595427906908
+  },
+  "_id": "aeedd3cf-eb9e-4a3c-ac2c-2540eaf3a241"
+}

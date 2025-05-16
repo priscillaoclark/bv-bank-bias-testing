@@ -1,0 +1,25 @@
+{
+  "name": "Ana Claudia Rodrigues",
+  "age": 45,
+  "gender": "Female",
+  "occupation": "Public school teacher",
+  "education_level": "Master's degree in Education",
+  "income_level": "Lower-middle income",
+  "location": "Salvador, Bahia, Brazil",
+  "language_proficiency": "Portuguese (native), Spanish (basic)",
+  "digital_literacy": "Moderate - Comfortable using email, educational platforms, and social media.  Limited experience with online banking and financial management tools.",
+  "financial_knowledge": "Moderate - Understands basic financial concepts but lacks confidence in investing and managing debt.  Actively seeking to improve her financial literacy.",
+  "banking_habits": "Uses a traditional bank for salary deposit and bill payments.  Relies on cash for many daily transactions.  Hesitant to adopt digital banking solutions due to security concerns.",
+  "financial_goals": "To provide quality education for her children, save for a down payment on a house, and secure a comfortable retirement.  Interested in learning about investment options to grow her savings.",
+  "challenges": "Faces financial strain due to rising living costs and limited salary growth. Experiences gender bias in salary negotiations and career advancement opportunities.  Concerned about the impact of religious discrimination on her children's educational experiences.",
+  "attributes": [
+    "Gender",
+    "Religion",
+    "Vulnerability"
+  ],
+  "date_created": "2025-05-16T10:22:35.633790",
+  "generated_by": "gemini-1.5-pro",
+  "generation_temperature": 0.4,
+  "diversity_level": "balanced",
+  "_id": "498984c6-95ce-4089-8e15-90cbb67f818a"
+}
